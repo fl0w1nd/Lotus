@@ -1,0 +1,219 @@
+@import "@fontsource/geist-sans/400.css";
+@import "@fontsource/geist-sans/500.css";
+@import "@fontsource/geist-sans/600.css";
+@import "@fontsource/geist-mono/400.css";
+@import "@fontsource/geist-mono/500.css";
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Geist Sans", -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-bg: var(--lt-bg);
+  --color-surface: var(--lt-surface);
+  --color-surface-2: var(--lt-surface-2);
+  --color-line: var(--lt-line);
+  --color-line-strong: var(--lt-line-strong);
+  --color-fg: var(--lt-fg);
+  --color-fg-2: var(--lt-fg-2);
+  --color-muted: var(--lt-muted);
+  --color-faint: var(--lt-faint);
+  --color-accent: var(--lt-accent);
+
+  --color-up: oklch(0.72 0.17 162);
+  --color-down: oklch(0.64 0.21 25);
+  --color-warn: oklch(0.78 0.16 75);
+
+  --color-c-cpu: oklch(0.70 0.14 240);
+  /* 内存改用品红,避免与品牌青莲紫(295)撞色 */
+  --color-c-mem: oklch(0.68 0.14 330);
+  --color-c-disk: oklch(0.76 0.13 75);
+  --color-c-in: oklch(0.72 0.13 195);
+  --color-c-out: oklch(0.68 0.16 12);
+
+  --radius-card: 0.875rem;
+
+  --animate-pulse-soft: pulse-soft 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-marquee-dash: marquee-dash 1.2s linear infinite;
+}
+
+:root {
+  --lt-bg: oklch(0.985 0.002 105);
+  --lt-surface: oklch(1 0 0);
+  --lt-surface-2: oklch(0.972 0.002 105);
+  --lt-line: oklch(0 0 0 / 7%);
+  --lt-line-strong: oklch(0 0 0 / 13%);
+  --lt-fg: oklch(0.205 0.004 285);
+  --lt-fg-2: oklch(0.37 0.004 285);
+  --lt-muted: oklch(0.51 0.006 285);
+  --lt-faint: oklch(0.62 0.006 285);
+  /* 青莲紫:与 up/warn/down 语义色明确区隔的冷色品牌色 */
+  --lt-accent: oklch(0.54 0.16 295);
+  color-scheme: light;
+}
+
+.dark {
+  --lt-bg: oklch(0.156 0.004 285);
+  --lt-surface: oklch(0.193 0.004 285);
+  --lt-surface-2: oklch(0.225 0.005 285);
+  --lt-line: oklch(1 0 0 / 8%);
+  --lt-line-strong: oklch(1 0 0 / 15%);
+  --lt-fg: oklch(0.965 0.002 285);
+  --lt-fg-2: oklch(0.83 0.003 285);
+  --lt-muted: oklch(0.67 0.005 285);
+  --lt-faint: oklch(0.56 0.005 285);
+  --lt-accent: oklch(0.71 0.13 295);
+  color-scheme: dark;
+}
+
+/* 键盘导航焦点环 */
+:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--lt-accent) 80%, transparent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-up {
+  animation: fade-up 0.45s cubic-bezier(0.21, 0.47, 0.32, 0.98) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up {
+    animation: none;
+  }
+}
+
+@keyframes marquee-dash {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+html {
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  @apply bg-bg text-fg font-sans;
+}
+
+/* 数字一律等宽对齐 */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 极简滚动条 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--lt-fg) 18%, transparent) transparent;
+}
+
+/* 隐藏滚动条(横向滑动容器) */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* 透明伪元素扩大触控热区 */
+.hit-target {
+  position: relative;
+}
+.hit-target::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--lt-accent) 24%, transparent);
+}
+
+/* 顶部氛围光 + 网点纹理,极淡 */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    1200px 500px at 50% -180px,
+    color-mix(in oklab, var(--lt-accent) 7%, transparent),
+    transparent 70%
+  );
+}
+
+.ambient::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    color-mix(in oklab, var(--lt-fg) 7%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 26px 26px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent 420px);
+}
+
+/* 玻璃卡片 */
+.card {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--lt-surface) 92%, white 0%),
+    var(--lt-surface)
+  );
+  border: 1px solid var(--lt-line);
+  border-radius: var(--radius-card);
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 4%),
+    inset 0 1px 0 color-mix(in oklab, white 4%, transparent);
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.25s ease;
+}
+
+.dark .card {
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 20%),
+    inset 0 1px 0 oklch(1 0 0 / 4%);
+}
+
+.card-hover:hover {
+  border-color: var(--lt-line-strong);
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 32px -10px oklch(0 0 0 / 14%),
+    inset 0 1px 0 color-mix(in oklab, white 5%, transparent);
+}
+
+.dark .card-hover:hover {
+  box-shadow:
+    0 12px 36px -10px oklch(0 0 0 / 55%),
+    inset 0 1px 0 oklch(1 0 0 / 6%);
+}

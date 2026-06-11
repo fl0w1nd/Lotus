@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 哪吒监控官方文档
+    url: https://nezha.wiki
+    about: 面板部署、Agent 接入等问题请先查阅官方文档

@@ -1,0 +1,61 @@
+name: "🐛 Bug 反馈"
+description: 主题显示异常、数据错误或功能不工作
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 清晰描述遇到的问题,如有截图请一并附上
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开 …
+        2. 点击 …
+        3. 出现 …
+    validations:
+      required: true
+
+  - type: input
+    id: nezha-version
+    attributes:
+      label: 哪吒面板版本
+      placeholder: 例如 v2.0.7
+    validations:
+      required: true
+
+  - type: input
+    id: theme-version
+    attributes:
+      label: 主题版本
+      placeholder: 例如 v1.0.0,或 commit hash
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: 浏览器与系统
+      placeholder: 例如 Chrome 138 / macOS 15、Safari / iOS 18
+    validations:
+      required: true
+
+  - type: textarea
+    id: custom-code
+    attributes:
+      label: 自定义代码(如有)
+      description: 如果管理后台设置了「自定义代码」,请贴出内容,便于排查变量注入相关问题
+      render: html
+
+  - type: textarea
+    id: console
+    attributes:
+      label: 控制台报错(如有)
+      description: 浏览器 DevTools Console 中的相关错误
+      render: text
