@@ -7,9 +7,11 @@
     <meta name="theme-color" content="#09090b" />
     <title>Lotus · Nezha Monitoring</title>
     <script>
-      // 自愈:浏览器启发式缓存的旧 index.html 引用的资产在主题更新后
-      // 可能已不存在(nezha 静态服务不带 Cache-Control)。脚本/样式加载
-      // 失败时自动 reload 一次——reload 会对主文档 revalidate,拿到新版
+      // 自愈:nezha 后端对带 If-Modified-Since 的条件请求会返回畸形的
+      // 200 空响应(GinCustomWriter 把 ServeContent 的 304 改写成 200,
+      // 而 304 路径已剥掉 Content-Type 和 body),浏览器视其为空脚本而
+      // 非缓存命中,导致白屏。脚本/样式加载失败时用 cache:"reload" 绕过
+      // 缓存重新拉取(发出无条件请求并刷新缓存条目),再重载页面
       (function () {
         var KEY = "lt-recovered";
         window.addEventListener(
@@ -19,7 +21,19 @@
             if (!el || (el.tagName !== "SCRIPT" && el.tagName !== "LINK")) return;
             if (sessionStorage.getItem(KEY)) return;
             sessionStorage.setItem(KEY, "1");
-            location.reload();
+            var urls = [location.pathname + location.search];
+            var nodes = document.querySelectorAll("script[src], link[rel=stylesheet][href]");
+            for (var i = 0; i < nodes.length; i++) urls.push(nodes[i].src || nodes[i].href);
+            // 注意不能用 location.reload():reload 对主文档再次发条件
+            // 请求,会再次命中同一个后端 bug。修好缓存后用 replace 导航,
+            // 新鲜的缓存条目可被直接复用
+            Promise.allSettled(
+              urls.map(function (u) {
+                return fetch(u, { cache: "reload" });
+              })
+            ).then(function () {
+              location.replace(location.href);
+            });
           },
           true
         );
