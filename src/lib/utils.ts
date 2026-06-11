@@ -47,6 +47,37 @@ export function diskPercent(s: NezhaServer): number {
   return (s.state.disk_used / s.host.disk_total) * 100;
 }
 
+const CYCLE_MONTHS: [RegExp, number][] = [
+  [/^(月|m|mo|month|monthly)$/i, 1],
+  [/^(季|q|qr|quarterly)$/i, 3],
+  [/^(半|半年|h|half|semi-annually)$/i, 6],
+  [/^(年|y|yr|year|annual|annually)$/i, 12],
+];
+
+/**
+ * 账单剩余天数。autoRenewal 为 "1" 时账单到期后自动滚动到下一周期
+ * (与 nezha-dash 行为一致),返回 null 表示无账单数据。
+ */
+export function billingDaysLeft(billing?: {
+  endDate?: string;
+  autoRenewal?: string;
+  cycle?: string;
+}): number | null {
+  if (!billing?.endDate) return null;
+  const end = new Date(billing.endDate).getTime();
+  if (Number.isNaN(end)) return null;
+  const now = Date.now();
+  const days = Math.floor((end - now) / 86_400_000);
+  if (days >= 0 || billing.autoRenewal !== "1") return days;
+
+  const months = CYCLE_MONTHS.find(([re]) => re.test(billing.cycle ?? ""))?.[1] ?? 1;
+  const d = new Date(end);
+  while (d.getTime() <= now) {
+    d.setMonth(d.getMonth() + months);
+  }
+  return Math.floor((d.getTime() - now) / 86_400_000);
+}
+
 /** 从 CPU 型号字符串解析核心数,如 "AMD EPYC 7763 4 Virtual Core" */
 export function cpuCoreCount(cpu?: string[]): number | null {
   if (!cpu?.length) return null;

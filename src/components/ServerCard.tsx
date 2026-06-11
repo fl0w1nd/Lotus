@@ -2,6 +2,7 @@ import { memo, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "@/lib/i18n";
 import {
+  billingDaysLeft,
   cn,
   diskPercent,
   formatBytes,
@@ -41,19 +42,27 @@ export const ServerCard = memo(function ServerCard({
 
   const note = useMemo(() => parsePublicNote(server.public_note), [server.public_note]);
   const billing = note?.billingDataMod;
-  const daysLeft = billing?.endDate
-    ? Math.floor((new Date(billing.endDate).getTime() - Date.now()) / 86_400_000)
-    : null;
-  const billingTitle = [
+  const plan = note?.planDataMod;
+  const daysLeft = billingDaysLeft(billing);
+  const billingTitle =
     billing?.amount && billing.amount !== "0"
       ? `${billing.amount}${billing.cycle ? `/${billing.cycle}` : ""}`
       : billing?.amount === "0"
         ? t("free")
-        : null,
-    note?.planDataMod?.networkRoute ? `${t("route")} ${note.planDataMod.networkRoute}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+        : "";
+  const planTags = [
+    plan?.networkRoute,
+    plan?.bandwidth,
+    plan?.trafficVol,
+    plan?.IPv4 === "1" && plan?.IPv6 === "1"
+      ? t("dualStack")
+      : plan?.IPv4 === "1"
+        ? "IPv4"
+        : plan?.IPv6 === "1"
+          ? "IPv6"
+          : null,
+    plan?.extra,
+  ].filter((v): v is string => Boolean(v));
 
   return (
     <Link
@@ -105,6 +114,20 @@ export const ServerCard = memo(function ServerCard({
           </span>
         )}
       </p>
+
+      {/* 套餐标签 */}
+      {planTags.length > 0 && (
+        <div className="-mt-1.5 flex flex-wrap gap-1">
+          {planTags.map((tag) => (
+            <span
+              key={tag}
+              className="rounded border border-line px-1.5 py-px font-mono text-[10px] leading-relaxed text-faint"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* 资源占用 */}
       <div className="dim-offline flex flex-col gap-2.5">

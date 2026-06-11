@@ -9,6 +9,7 @@ import { OsIcon } from "@/components/OsIcon";
 import { fetchSetting } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import {
+  billingDaysLeft,
   cn,
   cpuCoreCount,
   diskPercent,
@@ -134,9 +135,7 @@ export default function ServerDetail() {
   const billing = note?.billingDataMod;
   const plan = note?.planDataMod;
 
-  const daysLeft = billing?.endDate
-    ? Math.floor((new Date(billing.endDate).getTime() - Date.now()) / 86_400_000)
-    : null;
+  const daysLeft = billingDaysLeft(billing);
 
   const cpuModel = server.host.cpu?.join(" / ") || "—";
   const cores = cpuCoreCount(server.host.cpu);

@@ -52,14 +52,27 @@ export function PingChart({ serverId }: { serverId: number }) {
     return [...byTs.entries()].sort((a, b) => a[0] - b[0]).map(([ts, row]) => ({ t: ts, ...row }));
   }, [monitors, hidden]);
 
-  // 丢包率:优先用后端提供的 packet_loss,否则按失败采样占比估算
+  // 丢包率:优先用后端提供的 packet_loss;否则用与 nezha-dash 一致的
+  // 启发式从延迟序列估算(失败=100%,超高延迟分段映射,正常延迟用
+  // 滑动窗口变异系数推断抖动丢包)
   const lossOf = (m: (typeof monitors)[number]): number => {
     if (m.packet_loss?.length) {
       return (m.packet_loss.reduce((a, b) => a + b, 0) / m.packet_loss.length) * 100;
     }
-    if (!m.avg_delay?.length) return 0;
-    const failed = m.avg_delay.filter((d) => !(d > 0)).length;
-    return (failed / m.avg_delay.length) * 100;
+    const delays = m.avg_delay ?? [];
+    if (!delays.length) return 0;
+    const perPoint = delays.map((d, i) => {
+      if (!(d > 0)) return 1;
+      if (d >= 10000) return Math.min(0.95, 0.6 + ((d - 10000) / 20000) * 0.35);
+      if (d >= 3000) return Math.min(0.5, ((d - 3000) / 7000) * 0.5);
+      // 滑动窗口变异系数:延迟抖动越大,丢包概率越高(上限 25%)
+      const win = delays.slice(Math.max(0, i - 9), i + 1).filter((v) => v > 0);
+      if (win.length < 3) return 0;
+      const mean = win.reduce((a, b) => a + b, 0) / win.length;
+      const std = Math.sqrt(win.reduce((a, b) => a + (b - mean) ** 2, 0) / win.length);
+      return Math.min(0.25, Math.max(0, (std / mean - 0.3) * 0.5));
+    });
+    return (perPoint.reduce((a, b) => a + b, 0) / perPoint.length) * 100;
   };
 
   if (!monitors.length) return null;
