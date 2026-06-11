@@ -15,7 +15,15 @@ export function Footer({ version }: { version?: string }) {
           {version ? <span className="font-mono"> v{version}</span> : null}
         </p>
         <p>
-          Theme <span className="font-medium text-muted">Lotus</span>
+          Theme{" "}
+          <a
+            href="https://github.com/fl0w1nd/Lotus"
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-muted transition-colors hover:text-fg"
+          >
+            Lotus
+          </a>
         </p>
       </div>
     </footer>

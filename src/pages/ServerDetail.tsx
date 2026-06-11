@@ -85,7 +85,7 @@ function Chip({ children, title }: { children: React.ReactNode; title?: string }
   return (
     <span
       title={title}
-      className="inline-flex max-w-72 items-center gap-1 truncate rounded-md border border-line bg-surface px-2 py-1 font-mono text-[10.5px] text-muted"
+      className="inline-flex max-w-full items-center gap-1 break-words rounded-md border border-line bg-surface px-2 py-1 font-mono text-[10.5px] leading-relaxed text-muted"
     >
       {children}
     </span>
