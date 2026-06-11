@@ -8,6 +8,17 @@ import { ThemeProvider } from "./lib/theme";
 import { WSProvider } from "./lib/ws";
 import "./index.css";
 
+// 应用成功启动:清除 index.html 自愈脚本的一次性 reload 标记
+sessionStorage.removeItem("lt-recovered");
+
+// 防御性清理:此前部署的其他前端(PWA 主题)可能注册过 Service Worker,
+// 残留的 SW 会继续拦截导航并返回已失效的缓存资产,导致白屏
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    for (const reg of regs) reg.unregister();
+  });
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

@@ -6,6 +6,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#09090b" />
     <title>Lotus · Nezha Monitoring</title>
+    <script>
+      // 自愈:浏览器启发式缓存的旧 index.html 引用的资产在主题更新后
+      // 可能已不存在(nezha 静态服务不带 Cache-Control)。脚本/样式加载
+      // 失败时自动 reload 一次——reload 会对主文档 revalidate,拿到新版
+      (function () {
+        var KEY = "lt-recovered";
+        window.addEventListener(
+          "error",
+          function (e) {
+            var el = e.target;
+            if (!el || (el.tagName !== "SCRIPT" && el.tagName !== "LINK")) return;
+            if (sessionStorage.getItem(KEY)) return;
+            sessionStorage.setItem(KEY, "1");
+            location.reload();
+          },
+          true
+        );
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
