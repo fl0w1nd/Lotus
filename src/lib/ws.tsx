@@ -47,11 +47,22 @@ const STATE_DEFAULTS: ServerState = {
   gpu: [],
 };
 
+/**
+ * 后端仅在 WebSocket 第一帧下发 public_note(后续帧恒为空,见
+ * nezha getServerStat(count == 0, ...)),缓存首帧值供后续帧回退,
+ * 否则账单/套餐信息在连接 2 秒后就会消失。
+ */
+const noteCache = new Map<number, string>();
+
 function normalizeServer(s: Partial<NezhaServer>): NezhaServer {
+  const id = s.id ?? 0;
+  if (s.public_note) {
+    noteCache.set(id, s.public_note);
+  }
   return {
-    id: s.id ?? 0,
+    id,
     name: s.name ?? "",
-    public_note: s.public_note ?? "",
+    public_note: s.public_note || noteCache.get(id) || "",
     last_active: s.last_active ?? "",
     country_code: s.country_code ?? "",
     host: { ...HOST_DEFAULTS, ...s.host },

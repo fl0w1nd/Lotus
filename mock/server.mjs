@@ -274,14 +274,15 @@ function omitempty(obj) {
   return out;
 }
 
-function snapshot() {
+/** 与真实后端一致:public_note 仅在连接的第一帧下发 */
+function snapshot(withPublicNote = false) {
   const now = Date.now();
   return {
     now,
     servers: servers.map((s) => ({
       id: s.id,
       name: s.spec.name,
-      public_note: s.spec.note ? JSON.stringify(s.spec.note) : "",
+      public_note: withPublicNote && s.spec.note ? JSON.stringify(s.spec.note) : "",
       last_active: s.offline
         ? new Date(now - 86400_000 * 3).toISOString()
         : new Date(now).toISOString(),
@@ -334,10 +335,17 @@ function monitorData(serverId) {
     const base = 35 + mi * 40 + (serverId % 5) * 12;
     const created_at = [];
     const avg_delay = [];
+    // 移动 CM(mi=2)模拟劣化线路:偶发探测失败(0)+ 高抖动,用于验证丢包估算
+    const lossy = mi === 2;
     for (let i = 0; i < points; i++) {
       created_at.push(Math.round(start + i * step));
       const wave = Math.sin((i / points) * Math.PI * 4 + mi) * 14;
-      avg_delay.push(Math.max(4, base + wave + (Math.random() - 0.5) * 22));
+      if (lossy && Math.random() < 0.06) {
+        avg_delay.push(0);
+      } else {
+        const jitter = lossy ? (Math.random() - 0.5) * 90 : (Math.random() - 0.5) * 22;
+        avg_delay.push(Math.max(4, base + wave + jitter));
+      }
     }
     return {
       monitor_id: mi + 1,
@@ -487,7 +495,7 @@ const server = createServer((req, res) => {
 const wss = new WebSocketServer({ server, path: "/api/v1/ws/server" });
 
 wss.on("connection", (socket) => {
-  socket.send(JSON.stringify(snapshot()));
+  socket.send(JSON.stringify(snapshot(true)));
 });
 
 setInterval(() => {
