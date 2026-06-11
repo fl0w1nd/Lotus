@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "@/lib/i18n";
 import {
@@ -8,6 +8,7 @@ import {
   formatSpeed,
   formatUptime,
   memPercent,
+  parsePublicNote,
   platformName,
 } from "@/lib/utils";
 import { useNezhaWS } from "@/lib/ws";
@@ -37,6 +38,22 @@ export const ServerCard = memo(function ServerCard({
 
   const history = historyOf(server.id);
   const downSeries = history.map((h) => h.down);
+
+  const note = useMemo(() => parsePublicNote(server.public_note), [server.public_note]);
+  const billing = note?.billingDataMod;
+  const daysLeft = billing?.endDate
+    ? Math.floor((new Date(billing.endDate).getTime() - Date.now()) / 86_400_000)
+    : null;
+  const billingTitle = [
+    billing?.amount && billing.amount !== "0"
+      ? `${billing.amount}${billing.cycle ? `/${billing.cycle}` : ""}`
+      : billing?.amount === "0"
+        ? t("free")
+        : null,
+    note?.planDataMod?.networkRoute ? `${t("route")} ${note.planDataMod.networkRoute}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <Link
@@ -68,14 +85,25 @@ export const ServerCard = memo(function ServerCard({
         </span>
       </div>
 
-      {/* 平台信息 */}
-      <p className="-mt-2 flex items-center gap-1.5 truncate font-mono text-[10.5px] text-faint">
-        <OsIcon platform={server.host.platform} className="size-3 opacity-80" />
-        <span className="truncate">
+      {/* 平台信息 + 账单 */}
+      <p className="-mt-2 flex items-center gap-1.5 font-mono text-[10.5px] text-faint">
+        <OsIcon platform={server.host.platform} className="size-3 shrink-0 opacity-80" />
+        <span className="min-w-0 flex-1 truncate">
           {platformName(server.host.platform)}
           {server.host.platform_version ? ` ${server.host.platform_version}` : ""}
           {server.host.arch ? ` · ${server.host.arch}` : ""}
         </span>
+        {daysLeft !== null && (
+          <span
+            title={billingTitle || undefined}
+            className={cn(
+              "tnum shrink-0",
+              daysLeft < 0 ? "text-down" : daysLeft <= 7 ? "text-warn" : "text-faint",
+            )}
+          >
+            {daysLeft < 0 ? t("expired") : `${daysLeft}${lang === "zh-CN" ? " 天" : "d"}`}
+          </span>
+        )}
       </p>
 
       {/* 资源占用 */}

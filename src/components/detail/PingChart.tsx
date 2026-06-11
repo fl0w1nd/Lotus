@@ -38,17 +38,29 @@ export function PingChart({ serverId }: { serverId: number }) {
   );
 
   const chartData = useMemo(() => {
-    const byTs = new Map<number, Record<string, number>>();
+    const byTs = new Map<number, Record<string, number | null>>();
     for (const m of monitors) {
       if (hidden.has(m.monitor_id)) continue;
       m.created_at.forEach((ts, i) => {
         const row = byTs.get(ts) ?? {};
-        row[m.monitor_name] = Math.round(m.avg_delay[i] * 10) / 10;
+        const delay = m.avg_delay[i];
+        // 延迟为 0 表示该周期探测失败,置 null 不画成 0ms
+        row[m.monitor_name] = delay > 0 ? Math.round(delay * 10) / 10 : null;
         byTs.set(ts, row);
       });
     }
     return [...byTs.entries()].sort((a, b) => a[0] - b[0]).map(([ts, row]) => ({ t: ts, ...row }));
   }, [monitors, hidden]);
+
+  // 丢包率:优先用后端提供的 packet_loss,否则按失败采样占比估算
+  const lossOf = (m: (typeof monitors)[number]): number => {
+    if (m.packet_loss?.length) {
+      return (m.packet_loss.reduce((a, b) => a + b, 0) / m.packet_loss.length) * 100;
+    }
+    if (!m.avg_delay?.length) return 0;
+    const failed = m.avg_delay.filter((d) => !(d > 0)).length;
+    return (failed / m.avg_delay.length) * 100;
+  };
 
   if (!monitors.length) return null;
 
@@ -72,11 +84,13 @@ export function PingChart({ serverId }: { serverId: number }) {
           {monitors.map((m, i) => {
             const off = hidden.has(m.monitor_id);
             const color = SERIES_COLORS[i % SERIES_COLORS.length];
+            const loss = lossOf(m);
             return (
               <button
                 key={m.monitor_id}
                 type="button"
                 onClick={() => toggle(m.monitor_id)}
+                title={`${t("packetLoss")} ${loss.toFixed(1)}%`}
                 className={cn(
                   "flex items-center gap-1.5 rounded-md px-2 py-1 text-[10.5px] font-medium transition-all",
                   off ? "text-faint opacity-50 hover:opacity-80" : "bg-surface-2 text-fg-2",
@@ -87,6 +101,16 @@ export function PingChart({ serverId }: { serverId: number }) {
                   style={{ background: off ? "var(--lt-faint)" : color }}
                 />
                 {m.monitor_name}
+                {loss >= 0.05 && (
+                  <span
+                    className={cn(
+                      "tnum font-mono text-[10px]",
+                      loss >= 10 ? "text-down" : loss >= 1 ? "text-warn" : "text-faint",
+                    )}
+                  >
+                    {loss.toFixed(1)}%
+                  </span>
+                )}
               </button>
             );
           })}

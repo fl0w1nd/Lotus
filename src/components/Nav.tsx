@@ -125,6 +125,31 @@ export function Nav({ siteName }: { siteName: string }) {
             {lang === "zh-CN" ? "中" : "EN"}
           </button>
 
+          {/* 管理后台入口(同源 /dashboard) */}
+          <a
+            href="/dashboard"
+            target="_blank"
+            rel="noreferrer"
+            className="hit-target rounded-md p-2 text-muted transition-colors hover:bg-surface-2 hover:text-fg"
+            aria-label={t("admin")}
+            title={t("admin")}
+          >
+            <svg viewBox="0 0 16 16" fill="none" className="size-4">
+              <path
+                d="M8 1.7 2.7 4v4.2c0 3 2.2 5.3 5.3 6.1 3.1-.8 5.3-3.1 5.3-6.1V4L8 1.7Z"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M8 7.8a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2Zm-2.8 3.4c.5-1.3 1.5-2 2.8-2s2.3.7 2.8 2"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+            </svg>
+          </a>
+
           <button
             type="button"
             onClick={() => setTheme(resolved === "dark" ? "light" : "dark")}
