@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Route, Routes, useLocation } from "react-router-dom";
 import { ConnectionBanner } from "./components/ConnectionBanner";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Footer } from "./components/Footer";
 import { Nav } from "./components/Nav";
 import { fetchSetting } from "./lib/api";
@@ -91,11 +92,13 @@ export default function App() {
         key={pathname}
         className="fade-up mx-auto w-full max-w-screen-xl flex-1 px-4 pb-12 sm:px-6"
       >
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/server/:id" element={<ServerDetail />} />
-          <Route path="/services" element={<Services />} />
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/server/:id" element={<ServerDetail />} />
+            <Route path="/services" element={<Services />} />
+          </Routes>
+        </ErrorBoundary>
       </main>
       <Footer version={setting?.data?.version} />
     </div>

@@ -7,7 +7,57 @@ import {
   useRef,
   useState,
 } from "react";
-import type { WSResponse } from "@/types/nezha";
+import type { NezhaServer, ServerHost, ServerState, WSResponse } from "@/types/nezha";
+
+/**
+ * 后端所有字段都带 json omitempty——零值字段会从 JSON 中整个消失
+ * (如 load_1 为 0 时不存在 load_1 键)。在唯一数据入口归一化,
+ * 下游组件可以放心使用 .toFixed() / .join() 等。
+ */
+const HOST_DEFAULTS: ServerHost = {
+  platform: "",
+  platform_version: "",
+  cpu: [],
+  gpu: [],
+  mem_total: 0,
+  disk_total: 0,
+  swap_total: 0,
+  arch: "",
+  boot_time: 0,
+  version: "",
+};
+
+const STATE_DEFAULTS: ServerState = {
+  cpu: 0,
+  mem_used: 0,
+  swap_used: 0,
+  disk_used: 0,
+  net_in_transfer: 0,
+  net_out_transfer: 0,
+  net_in_speed: 0,
+  net_out_speed: 0,
+  uptime: 0,
+  load_1: 0,
+  load_5: 0,
+  load_15: 0,
+  tcp_conn_count: 0,
+  udp_conn_count: 0,
+  process_count: 0,
+  temperatures: [],
+  gpu: [],
+};
+
+function normalizeServer(s: Partial<NezhaServer>): NezhaServer {
+  return {
+    id: s.id ?? 0,
+    name: s.name ?? "",
+    public_note: s.public_note ?? "",
+    last_active: s.last_active ?? "",
+    country_code: s.country_code ?? "",
+    host: { ...HOST_DEFAULTS, ...s.host },
+    state: { ...STATE_DEFAULTS, ...s.state },
+  };
+}
 
 export interface HistoryPoint {
   t: number;
@@ -63,15 +113,19 @@ export function WSProvider({ children }: { children: ReactNode }) {
 
       socket.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data) as WSResponse;
-          for (const s of data.servers ?? []) {
+          const raw = JSON.parse(event.data) as WSResponse;
+          const data: WSResponse = {
+            now: raw.now ?? Date.now(),
+            servers: (raw.servers ?? []).map(normalizeServer),
+          };
+          for (const s of data.servers) {
             const arr = history.current.get(s.id) ?? [];
             arr.push({
               t: data.now,
-              cpu: s.state.cpu ?? 0,
+              cpu: s.state.cpu,
               memPct: s.host.mem_total ? (s.state.mem_used / s.host.mem_total) * 100 : 0,
-              up: s.state.net_out_speed ?? 0,
-              down: s.state.net_in_speed ?? 0,
+              up: s.state.net_out_speed,
+              down: s.state.net_in_speed,
             });
             if (arr.length > HISTORY_CAP) arr.splice(0, arr.length - HISTORY_CAP);
             history.current.set(s.id, arr);

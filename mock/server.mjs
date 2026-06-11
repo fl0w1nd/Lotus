@@ -263,6 +263,17 @@ function temperatures(s) {
   return list;
 }
 
+/** 模拟后端 json omitempty:零值/空值字段从 JSON 中剥除 */
+function omitempty(obj) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === 0 || v === "" || v === undefined || v === null) continue;
+    if (Array.isArray(v) && v.length === 0) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
 function snapshot() {
   const now = Date.now();
   return {
@@ -275,7 +286,7 @@ function snapshot() {
         ? new Date(now - 86400_000 * 3).toISOString()
         : new Date(now).toISOString(),
       country_code: s.spec.cc,
-      host: {
+      host: omitempty({
         platform: s.spec.platform,
         platform_version: s.spec.pv,
         cpu: [s.spec.cpu],
@@ -287,8 +298,8 @@ function snapshot() {
         virtualization: s.spec.virt || undefined,
         boot_time: s.boot,
         version: "1.15.0",
-      },
-      state: {
+      }),
+      state: omitempty({
         cpu: s.offline ? 0 : s.cpu,
         mem_used: s.offline ? 0 : (s.memPct / 100) * s.spec.mem * GIB,
         swap_used: s.offline ? 0 : 0.12 * Math.round(s.spec.mem / 2) * GIB,
@@ -306,7 +317,7 @@ function snapshot() {
         process_count: s.offline ? 0 : s.procs,
         temperatures: s.offline ? [] : temperatures(s),
         gpu: s.offline ? [] : s.gpuUtil,
-      },
+      }),
     })),
   };
 }
