@@ -118,10 +118,10 @@ export function HistoryChart({ serverId }: { serverId: number }) {
         <AreaChart
           data={points}
           margin={{
-            top: 4,
+            top: 10,
             right: 0,
             bottom: 0,
-            left: meta.unit === "speed" ? -6 : meta.unit === "raw" ? -10 : -14,
+            left: 0,
           }}
         >
           <defs>
@@ -135,7 +135,7 @@ export function HistoryChart({ serverId }: { serverId: number }) {
           <YAxis
             tickFormatter={(v: number) => fmt(v)}
             {...AXIS_PROPS}
-            width={meta.unit === "speed" ? 64 : 46}
+            width={meta.unit === "speed" ? 68 : meta.unit === "raw" ? 44 : 36}
             domain={meta.unit === "percent" ? [0, 100] : undefined}
           />
           <Tooltip

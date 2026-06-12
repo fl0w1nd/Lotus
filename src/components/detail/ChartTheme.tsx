@@ -8,6 +8,7 @@ export const AXIS_PROPS = {
     fill: "var(--lt-faint)",
     fontSize: 10,
     fontFamily: "Geist Mono, ui-monospace, monospace",
+    whiteSpace: "nowrap" as const,
   },
 };
 

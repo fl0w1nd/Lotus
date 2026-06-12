@@ -213,8 +213,8 @@ const servers = SPECS.map((s, i) => {
     cpu: 8 + Math.random() * 30,
     memPct: 25 + Math.random() * 45,
     diskPct: 20 + Math.random() * 55,
-    up: (0.2 + Math.random() * 4) * 1024 ** 2,
-    down: (0.5 + Math.random() * 12) * 1024 ** 2,
+    up: (50 + Math.random() * 800) * 1024 ** 2,
+    down: (100 + Math.random() * 1500) * 1024 ** 2,
     tin: Math.random() * 800 * GIB,
     tout: Math.random() * 400 * GIB,
     boot: Math.floor(now0 / 1000) - Math.floor((3 + Math.random() * 200) * 86400),
@@ -236,8 +236,14 @@ function tick() {
   for (const s of servers) {
     s.cpu = drift(s.cpu, 0.5, 99, 9);
     s.memPct = drift(s.memPct, 8, 96, 1.6);
-    s.up = Math.min(60 * 1024 ** 2, Math.max(1024, s.up * (0.75 + Math.random() * 0.55)));
-    s.down = Math.min(120 * 1024 ** 2, Math.max(2048, s.down * (0.75 + Math.random() * 0.55)));
+    s.up = Math.min(
+      2048 * 1024 ** 2,
+      Math.max(10 * 1024 ** 2, s.up * (0.75 + Math.random() * 0.55)),
+    );
+    s.down = Math.min(
+      4096 * 1024 ** 2,
+      Math.max(20 * 1024 ** 2, s.down * (0.75 + Math.random() * 0.55)),
+    );
     s.tin += s.down * 2;
     s.tout += s.up * 2;
     s.tcp = Math.round(drift(s.tcp, 10, 900, 26));
@@ -369,7 +375,7 @@ function metricsData(serverId, metric, period) {
     const phase = Math.sin((i / points) * Math.PI * 6) * 0.4 + 0.5;
     let value;
     if (isSpeed) {
-      value = phase * 8 * 1024 ** 2 * (0.4 + Math.random());
+      value = phase * 800 * 1024 ** 2 * (0.4 + Math.random());
     } else if (metric === "load1") {
       value = Math.max(0.02, phase * 2.4 + (Math.random() - 0.5) * 0.6);
     } else if (metric === "process_count") {

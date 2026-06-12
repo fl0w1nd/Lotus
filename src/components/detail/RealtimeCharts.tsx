@@ -57,7 +57,7 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
           </div>
         </div>
         <ResponsiveContainer width="100%" height={170}>
-          <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: -14 }}>
+          <AreaChart data={data} margin={{ top: 10, right: 0, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="g-cpu" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--color-c-cpu)" stopOpacity={0.25} />
@@ -70,7 +70,7 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
             </defs>
             <CartesianGrid {...GRID_PROPS} />
             <XAxis dataKey="t" tickFormatter={timeLabel} {...AXIS_PROPS} minTickGap={50} />
-            <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} {...AXIS_PROPS} width={46} />
+            <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} {...AXIS_PROPS} width={36} />
             <Tooltip
               content={
                 <ChartTooltip
@@ -117,7 +117,7 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
           </div>
         </div>
         <ResponsiveContainer width="100%" height={170}>
-          <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: -6 }}>
+          <AreaChart data={data} margin={{ top: 10, right: 0, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="g-up" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--color-c-out)" stopOpacity={0.25} />
@@ -130,7 +130,7 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
             </defs>
             <CartesianGrid {...GRID_PROPS} />
             <XAxis dataKey="t" tickFormatter={timeLabel} {...AXIS_PROPS} minTickGap={50} />
-            <YAxis tickFormatter={(v: number) => formatSpeed(v)} {...AXIS_PROPS} width={64} />
+            <YAxis tickFormatter={(v: number) => formatSpeed(v)} {...AXIS_PROPS} width={68} />
             <Tooltip
               content={
                 <ChartTooltip
