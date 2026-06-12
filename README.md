@@ -19,12 +19,13 @@
 
 设计语言取法 Vercel / Linear / Apple：跟随系统深浅色、玻璃质感卡片、等宽数字排版、克制的色彩——让色彩只承载信息（在线 / 告警 / 离线），其余交给灰阶与留白。
 
-![preview](docs/preview-dark.png)
+![preview](docs/preview-light.png)
+![nodemap](docs/preview-nodemap.png)
 
 <details>
-<summary>📷 更多预览（亮色 / 详情页 / 服务页）</summary>
+<summary>📷 更多预览（暗色 / 详情页 / 服务页）</summary>
 
-![light](docs/preview-light.png)
+![dark](docs/preview-dark.png)
 ![detail](docs/preview-detail.png)
 ![services](docs/preview-services.png)
 
@@ -34,14 +35,14 @@
 
 ## ✨ 特性
 
-- **世界点阵地图** — Stripe 风格点阵世界地图（构建期生成，运行时零依赖），服务器按国家聚合为脉冲光点（在线绿 / 离线红），可折叠，支持 `window.ForceShowMap`
+- **节点分布页** — 独立导航标签，左侧 HUD 面板（在线率环形图、地区统计、平均 CPU / 内存条）+ 右侧 Stripe 风格点阵世界地图（构建期生成，运行时零依赖），点击国家展开服务器详情卡片
 - **实时总览** — WebSocket 实时流（`/api/v1/ws/server`），聚合统计条（在线数 / 地区 / 实时网速 / 总流量）带数字滚动动画
-- **服务器卡片** — OS 发行版图标（simple-icons）、CPU / 内存 / 磁盘渐变进度（75% 变琥珀、90% 变红），实时网速 + 流量，卡片内置网速迷你曲线图
+- **服务器卡片 / 列表** — 卡片与列表双视图，一键切换（持久化偏好）；卡片模式展示 OS 发行版图标（simple-icons）、CPU / 内存 / 磁盘渐变进度（75% 变琥珀、90% 变红）、实时网速 + 流量、迷你网速曲线图；列表模式紧凑五行布局
 - **分组 / 搜索 / 排序** — 服务器分组过滤、模糊搜索、按 CPU / 内存 / 流量 / 在线时长排序
 - **服务器详情** — 主机信息芯片（含虚拟化类型）、实时指标瓦片、GPU 利用率（多卡）、温度传感器条、负载相对核心数着色、CPU + 内存 / 网络实时曲线、TCP / TCPing 网络监控多线图（可逐线开关 + Peak Cut 峰值裁剪）
 - **TSDB 历史指标** — v2 新增 `/api/v1/server/{id}/metrics`，支持 CPU / 内存 / 磁盘 / 上下行 / 负载 / 进程 / 连接 8 种指标，24h / 7d / 30d 切换；`tsdb_enabled: false` 时自动隐藏
 - **服务页** — 30 天可用性方块图（Vercel status 风格）+ 周期流量统计进度
-- **账单与套餐** — 解析 `public_note` 中的计费数据（与 nezha-dash 约定兼容），展示到期倒计时、价格、带宽、线路等
+- **账单与套餐** — 解析 `public_note` 中的计费数据（与 nezha-dash 约定兼容），六级到期色阶指示（已到期 / ≤3 天脉冲红 → ≤30 天灰阶）、流量用量进度条、套餐标签（带宽 / 流量 / IPv4 / IPv6 / 线路）
 - **自定义代码注入** — 管理后台「自定义代码」中的 CSS / JS 会被注入页面，所有官方变量可用
 - **健康感知 favicon** — 浏览器标签图标随整体健康状态变色（正常紫 / 有离线琥珀 / 大面积故障红）
 - **断线提示** — WebSocket 断开超 3 秒显示顶部重连提示条
@@ -66,7 +67,7 @@ unzip dist.zip
 
 ### 2. Docker 挂载部署（推荐）
 
-官方 Dashboard 容器的用户前端位于 `/dashboard/user-dist`，只需将主题目录挂载覆盖即可：
+Nezha Dashboard 在服务前端文件时优先读取本地文件系统（`os.OpenRoot`），回退到二进制内嵌资源。因此只需将主题目录挂载到容器内的 `user-dist` 路径即可覆盖官方主题：
 
 ```yaml
 # docker-compose.yml
@@ -88,7 +89,20 @@ docker compose up -d
 
 > **💡 提示**：更新主题时只需下载新版 `dist.zip` 解压覆盖 `nezha-theme-lotus-dist/` 目录，然后重启容器即可。
 
-### 3. ⚠️ 前置反向代理（必需）
+### 3. 二进制部署挂载
+
+若使用一键脚本安装的独立二进制（非 Docker），同样利用本地文件优先机制——将主题放到 Dashboard 工作目录下的 `user-dist/`：
+
+```bash
+# 默认安装路径为 /opt/nezha/dashboard/
+unzip dist.zip
+sudo cp -r nezha-theme-lotus-dist /opt/nezha/dashboard/user-dist
+
+# 重启服务
+sudo systemctl restart nezha-dashboard
+```
+
+### 4. ⚠️ 前置反向代理（必需）
 
 Nezha Dashboard 后端存在 [304 状态码覆写 bug](https://github.com/nezhahq/nezha/issues)：`GinCustomWriter` 将 HTTP `304 Not Modified` 强制覆写为 `200`，但 body 已被剥离，浏览器收到空响应后白屏。**必须在前置反代中剥离条件请求头，绕过此 bug。**
 
@@ -132,7 +146,7 @@ status.example.com {
 <details>
 <summary>📦 方式二：独立托管 + 反向代理</summary>
 
-将 `dist/` 部署到任意静态服务（nginx / Caddy / CDN），将 `/api/v1/` 反代到面板并保留 WebSocket 升级头：
+将 `dist/` 部署到任意静态服务（nginx / Caddy / CDN），将 `/api/v1/` 反代到面板并保留 WebSocket 升级头。本主题使用 Hash 路由，不需要 SPA fallback：
 
 ```nginx
 server {
@@ -140,9 +154,6 @@ server {
   server_name status.example.com;
 
   root /var/www/lotus-dist;
-  location / {
-    try_files $uri /index.html;   # SPA fallback
-  }
 
   location /api/v1/ {
     proxy_pass http://dashboard:8008;
@@ -150,6 +161,10 @@ server {
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
     proxy_set_header Host $host;
+
+    # 必备：剥离条件请求头，绕过 Nezha 后端的 304→200 bug
+    proxy_set_header If-Modified-Since "";
+    proxy_set_header If-None-Match "";
   }
 }
 ```
@@ -178,7 +193,6 @@ server {
 | `window.CustomBackgroundImage` | 桌面端背景图 URL |
 | `window.CustomMobileBackgroundImage` | 移动端背景图 URL |
 | `window.ShowNetTransfer` | 是否在卡片显示累计流量（本主题默认显示，设为 `false` 可隐藏） |
-| `window.ForceShowMap` | 强制展开首页节点分布地图 |
 | `window.ForceUseSvgFlag` | 强制使用 SVG 国旗（Windows 平台会自动启用，emoji 国旗在 Windows 不可用） |
 
 ---
@@ -207,9 +221,9 @@ pnpm build   # 产物在 dist/
 
 ## 🧩 技术栈
 
-React 19 · TypeScript · Vite 8 · Tailwind CSS 4 · TanStack Query · Recharts · simple-icons · Geist 字体
+React 19 · TypeScript · Vite 8 · Tailwind CSS 4 · TanStack Query · Recharts · react-router · NumberFlow · simple-icons · Geist 字体
 
-> 世界地图点阵数据由 `pnpm gen:map` 在构建期生成（`scripts/gen-world-dots.mjs`，基于 dotted-map），运行时为纯 SVG，无额外依赖。
+> 世界地图点阵数据由 `pnpm gen:map` 在构建期生成（基于 dotted-map），运行时为纯 SVG，零依赖。
 
 ## 📡 数据接口
 
