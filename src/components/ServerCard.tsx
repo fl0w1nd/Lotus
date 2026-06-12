@@ -58,7 +58,11 @@ export const ServerCard = memo(function ServerCard({
   const plan = note?.planDataMod;
 
   const currentTransfer = useMemo(() => {
-    if (plan?.trafficType === "3" || plan?.trafficType === "double" || plan?.trafficType === "both") {
+    if (
+      plan?.trafficType === "3" ||
+      plan?.trafficType === "double" ||
+      plan?.trafficType === "both"
+    ) {
       return server.state.net_out_transfer + server.state.net_in_transfer;
     }
     return server.state.net_out_transfer;
@@ -208,23 +212,26 @@ export const ServerCard = memo(function ServerCard({
           <div className="w-full">
             <div className="mb-0.5 flex justify-between text-[9px] font-mono text-faint leading-none">
               <span>
-                {plan?.trafficType === "3" || plan?.trafficType === "double" || plan?.trafficType === "both"
-                  ? (lang === "zh-CN" ? "双向流量" : "Dual Traffic")
-                  : (lang === "zh-CN" ? "出站流量" : "Outbound Traffic")}
+                {plan?.trafficType === "3" ||
+                plan?.trafficType === "double" ||
+                plan?.trafficType === "both"
+                  ? lang === "zh-CN"
+                    ? "双向流量"
+                    : "Dual Traffic"
+                  : lang === "zh-CN"
+                    ? "出站流量"
+                    : "Outbound Traffic"}
               </span>
               <span>
-                {formatBytes(currentTransfer)} / {plan?.trafficVol} ({Math.min(trafficPercent, 100).toFixed(0)}%)
+                {formatBytes(currentTransfer)} / {plan?.trafficVol} (
+                {Math.min(trafficPercent, 100).toFixed(0)}%)
               </span>
             </div>
             <div className="h-[2px] w-full overflow-hidden rounded-full bg-line">
               <div
                 className={cn(
                   "h-full rounded-full transition-all duration-500",
-                  trafficPercent >= 90
-                    ? "bg-down"
-                    : trafficPercent >= 75
-                      ? "bg-warn"
-                      : "bg-c-in",
+                  trafficPercent >= 90 ? "bg-down" : trafficPercent >= 75 ? "bg-warn" : "bg-c-in",
                 )}
                 style={{ width: `${Math.min(trafficPercent, 100)}%` }}
               />

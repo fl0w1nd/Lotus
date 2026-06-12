@@ -37,7 +37,7 @@ export function niceStep(rough: number): number {
   let factor: number;
   if (error >= 7.071) factor = 10;
   else if (error >= 3.162) factor = 5;
-  else if (error >= 1.414) factor = 2;
+  else if (error >= Math.SQRT2) factor = 2;
   else factor = 1;
   return factor * 10 ** power;
 }

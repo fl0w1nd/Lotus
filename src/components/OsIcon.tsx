@@ -62,11 +62,7 @@ export function OsIcon({ platform, className }: { platform?: string; className?:
   if (!path) return null;
 
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className={cn("size-3.5 shrink-0", className)}
-      aria-hidden
-    >
+    <svg viewBox="0 0 24 24" className={cn("size-3.5 shrink-0", className)} aria-hidden>
       <path d={path} fill={`#${hex}`} />
     </svg>
   );

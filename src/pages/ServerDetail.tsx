@@ -152,7 +152,7 @@ export default function ServerDetail() {
   const truncateString = (str: string, maxLen = 32): string => {
     if (!str) return "";
     if (str.length <= maxLen) return str;
-    return str.slice(0, maxLen) + "…";
+    return `${str.slice(0, maxLen)}…`;
   };
 
   return (

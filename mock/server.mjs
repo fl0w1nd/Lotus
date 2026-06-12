@@ -355,16 +355,20 @@ function monitorData(serverId, period = "1d") {
       let isInMajorFailure = false; // 严重故障段，直接丢包/超时
       let isInJitterPeriod = false; // 轻微抖动/恶化段，高延迟
 
-      if (mi === 0) { // 电信 CT
+      if (mi === 0) {
+        // 电信 CT
         if (i >= 45 * f && i <= 52 * f) isInMajorFailure = true;
         if (i >= 130 * f && i <= 138 * f) isInJitterPeriod = true;
-      } else if (mi === 1) { // 联通 CU
+      } else if (mi === 1) {
+        // 联通 CU
         if (i >= 75 * f && i <= 80 * f) isInMajorFailure = true;
         if (i >= 150 * f && i <= 158 * f) isInJitterPeriod = true;
-      } else if (mi === 2) { // 移动 CM
+      } else if (mi === 2) {
+        // 移动 CM
         if (i >= 100 * f && i <= 112 * f) isInMajorFailure = true;
         if (i >= 20 * f && i <= 30 * f) isInJitterPeriod = true;
-      } else if (mi === 3) { // Cloudflare
+      } else if (mi === 3) {
+        // Cloudflare
         if (i >= 115 * f && i <= 122 * f) isInMajorFailure = true;
         if (i >= 60 * f && i <= 68 * f) isInJitterPeriod = true;
       }
