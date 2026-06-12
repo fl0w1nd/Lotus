@@ -9,6 +9,13 @@ const PORT = process.env.PORT || 8008;
 
 /* ---------- 模拟服务器数据 ---------- */
 
+// 动态生成各紧迫度层级的到期日 (基于当前日期偏移)
+function dateOffset(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().replace("Z", "+08:00");
+}
+
 const SPECS = [
   {
     name: "Tokyo-Core",
@@ -50,7 +57,11 @@ const SPECS = [
     cpu: "Ampere Altra 2 Virtual Core",
     mem: 4,
     disk: 80,
-    note: null,
+    // ≤3 天: 红色快速脉冲
+    note: {
+      billingDataMod: { endDate: dateOffset(2), cycle: "月", amount: "$18" },
+      planDataMod: { bandwidth: "1Gbps", trafficVol: "1TB/月", IPv4: "1", networkRoute: "IIJ" },
+    },
   },
   {
     name: "HongKong-Pro",
@@ -63,8 +74,9 @@ const SPECS = [
     mem: 16,
     disk: 320,
     temps: ["coretemp", "nvme"],
+    // ≤7 天: 黄色柔和脉冲
     note: {
-      billingDataMod: { endDate: "2026-06-25T00:00:00+08:00", cycle: "月", amount: "$28" },
+      billingDataMod: { endDate: dateOffset(5), cycle: "月", amount: "$28" },
       planDataMod: {
         bandwidth: "1Gbps",
         trafficVol: "2TB/月",
@@ -84,7 +96,11 @@ const SPECS = [
     cpu: "Intel Xeon Gold 6433N 2 Virtual Core",
     mem: 4,
     disk: 60,
-    note: null,
+    // ≤14 天: 黄色静态
+    note: {
+      billingDataMod: { endDate: dateOffset(10), cycle: "季", amount: "$35" },
+      planDataMod: { bandwidth: "500Mbps", trafficVol: "500GB/月", IPv4: "1" },
+    },
   },
   {
     name: "LosAngeles-4837",
@@ -96,8 +112,9 @@ const SPECS = [
     cpu: "AMD EPYC 7763 4 Virtual Core",
     mem: 8,
     disk: 120,
+    // ≤30 天: 灰色 muted
     note: {
-      billingDataMod: { endDate: "2027-01-15T00:00:00+08:00", cycle: "年", amount: "$45" },
+      billingDataMod: { endDate: dateOffset(22), cycle: "月", amount: "$45" },
       planDataMod: {
         bandwidth: "2.5Gbps",
         trafficVol: "20TB/月",
@@ -118,7 +135,11 @@ const SPECS = [
     mem: 2,
     disk: 40,
     temps: ["coretemp"],
-    note: null,
+    // 已到期: 红色快速脉冲
+    note: {
+      billingDataMod: { endDate: dateOffset(-3), cycle: "月", amount: "$12" },
+      planDataMod: { bandwidth: "100Mbps", trafficVol: "500GB/月", IPv4: "1" },
+    },
   },
   {
     name: "Frankfurt-DC",
@@ -144,8 +165,9 @@ const SPECS = [
     cpu: "Neoverse-N1 1 Virtual Core",
     mem: 1,
     disk: 20,
+    // >30 天: 灰色 faint
     note: {
-      billingDataMod: { endDate: "2026-07-02T00:00:00+08:00", cycle: "月", amount: "0" },
+      billingDataMod: { endDate: dateOffset(90), cycle: "月", amount: "0" },
       planDataMod: { bandwidth: "200Mbps", trafficVol: "1TB/月", IPv6: "1" },
     },
   },

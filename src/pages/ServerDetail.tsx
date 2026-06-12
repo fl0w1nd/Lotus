@@ -201,10 +201,16 @@ export default function ServerDetail() {
               className={cn(
                 "rounded-full border px-2.5 py-1 font-mono text-[10.5px] font-semibold",
                 daysLeft < 0
-                  ? "border-down/20 bg-down/10 text-down"
-                  : daysLeft <= 7
-                    ? "border-warn/20 bg-warn/10 text-warn"
-                    : "border-line bg-surface text-muted",
+                  ? "border-down/25 bg-down/15 text-down animate-pulse-urgent"
+                  : daysLeft <= 3
+                    ? "border-down/20 bg-down/10 text-down animate-pulse-urgent"
+                    : daysLeft <= 7
+                      ? "border-warn/25 bg-warn/12 text-warn animate-pulse-soft"
+                      : daysLeft <= 14
+                        ? "border-warn/15 bg-warn/8 text-warn"
+                        : daysLeft <= 30
+                          ? "border-line bg-surface text-muted"
+                          : "border-line bg-surface text-faint",
               )}
             >
               {billing?.amount && billing.amount !== "0"

@@ -145,10 +145,16 @@ export const ServerCard = memo(function ServerCard({
               className={cn(
                 "rounded border px-1.5 py-px font-mono text-[10px] leading-relaxed font-semibold shrink-0",
                 daysLeft < 0
-                  ? "border-down/20 bg-down/10 text-down"
-                  : daysLeft <= 7
-                    ? "border-warn/20 bg-warn/10 text-warn"
-                    : "border-line bg-surface text-muted",
+                  ? "border-down/25 bg-down/15 text-down animate-pulse-urgent"
+                  : daysLeft <= 3
+                    ? "border-down/20 bg-down/10 text-down animate-pulse-urgent"
+                    : daysLeft <= 7
+                      ? "border-warn/25 bg-warn/12 text-warn animate-pulse-soft"
+                      : daysLeft <= 14
+                        ? "border-warn/15 bg-warn/8 text-warn"
+                        : daysLeft <= 30
+                          ? "border-line bg-surface text-muted"
+                          : "border-line bg-surface text-faint",
               )}
             >
               {billingTitle ? `${billingTitle} · ` : ""}

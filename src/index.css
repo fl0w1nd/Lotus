@@ -36,6 +36,7 @@
   --radius-card: 0.875rem;
 
   --animate-pulse-soft: pulse-soft 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-pulse-urgent: pulse-urgent 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   --animate-marquee-dash: marquee-dash 1.2s linear infinite;
 }
 
@@ -109,6 +110,18 @@
 @media (prefers-reduced-motion: reduce) {
   .fade-up {
     animation: none;
+  }
+}
+
+@keyframes pulse-urgent {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.04);
   }
 }
 

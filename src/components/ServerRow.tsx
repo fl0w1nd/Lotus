@@ -152,10 +152,25 @@ export const ServerRow = memo(function ServerRow({
         {/* 极简套餐/到期 Tag */}
         {planTags.length > 0 && (
           <div className="hidden lg:flex flex-wrap justify-end gap-0.5 max-w-[80px] shrink-0">
-            {planTags.slice(0, 2).map((tag) => (
+            {planTags.slice(0, 2).map((tag, i) => (
               <span
                 key={tag}
-                className="rounded border border-line bg-surface-2 px-1.5 py-px font-mono text-[8.5px] text-faint leading-none scale-95 origin-right"
+                className={cn(
+                  "rounded border px-1.5 py-px font-mono text-[8.5px] leading-none scale-95 origin-right",
+                  i === 0 && daysLeft !== null
+                    ? daysLeft < 0
+                      ? "border-down/25 bg-down/15 text-down animate-pulse-urgent"
+                      : daysLeft <= 3
+                        ? "border-down/20 bg-down/10 text-down animate-pulse-urgent"
+                        : daysLeft <= 7
+                          ? "border-warn/25 bg-warn/12 text-warn animate-pulse-soft"
+                          : daysLeft <= 14
+                            ? "border-warn/15 bg-warn/8 text-warn"
+                            : daysLeft <= 30
+                              ? "border-line bg-surface-2 text-muted"
+                              : "border-line bg-surface-2 text-faint"
+                    : "border-line bg-surface-2 text-faint",
+                )}
               >
                 {tag}
               </span>
