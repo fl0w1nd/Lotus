@@ -400,7 +400,7 @@ export function PingChart({ serverId }: { serverId: number }) {
     return () => observer.disconnect();
   }, []);
 
-  const { data, isPlaceholderData } = useQuery({
+  const { data, isPlaceholderData, isLoading } = useQuery({
     queryKey: ["monitor", serverId, period],
     queryFn: () => fetchServerMonitor(serverId, period),
     placeholderData: keepPreviousData,
@@ -513,6 +513,30 @@ export function PingChart({ serverId }: { serverId: number }) {
       lossYWidth: axisWidthFor(loss.ticks.map((v) => `${v}%`)),
     };
   }, [processedData, visibleMonitors]);
+
+  if (isLoading) {
+    return (
+      <div className="card p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="h-3.5 w-16 animate-pulse rounded bg-surface-2" />
+            <div className="h-7 w-28 animate-pulse rounded-lg bg-surface-2" />
+            <div className="h-7 w-16 animate-pulse rounded-md bg-surface-2" />
+          </div>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div
+                key={i}
+                className="h-6 w-20 animate-pulse rounded-md bg-surface-2"
+                style={{ animationDelay: `${i * 100}ms` }}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="h-[220px] animate-pulse rounded bg-surface-2" />
+      </div>
+    );
+  }
 
   if (!monitors.length) return null;
 
