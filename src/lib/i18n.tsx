@@ -73,6 +73,9 @@ const dict = {
     today: "今天",
     daysAgo: "天前",
     noData: "无数据",
+    themeSystem: "跟随系统",
+    themeLight: "浅色主题",
+    themeDark: "深色主题",
   },
   en: {
     overview: "Overview",
@@ -146,6 +149,9 @@ const dict = {
     today: "Today",
     daysAgo: "d ago",
     noData: "No data",
+    themeSystem: "System theme",
+    themeLight: "Light theme",
+    themeDark: "Dark theme",
   },
 } as const;
 

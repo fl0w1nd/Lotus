@@ -7,6 +7,19 @@
     <meta name="theme-color" content="#09090b" />
     <title>Lotus · Nezha Monitoring</title>
     <script>
+      // 在 React 挂载前检测系统主题，避免亮色闪烁 (FOUC)
+      (function () {
+        var forced = window.ForceTheme;
+        var dark =
+          forced === "dark" ||
+          (forced !== "light" &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches);
+        if (dark) document.documentElement.classList.add("dark");
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.content = dark ? "#131316" : "#fbfbfa";
+      })();
+    </script>
+    <script>
       // 自愈:nezha 后端对带 If-Modified-Since 的条件请求会返回畸形的
       // 200 空响应(GinCustomWriter 把 ServeContent 的 304 改写成 200,
       // 而 304 路径已剥掉 Content-Type 和 body),浏览器视其为空脚本而

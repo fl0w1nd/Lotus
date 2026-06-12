@@ -17,7 +17,7 @@ function parseCustomLinks(): { name: string; link: string }[] {
 
 export function Nav({ siteName }: { siteName: string }) {
   const { t, lang, setLang } = useI18n();
-  const { resolved, setTheme } = useTheme();
+  const { theme, resolved, setTheme } = useTheme();
   const { connected } = useNezhaWS();
   const customCodeReady = useCustomCodeReady();
   // biome-ignore lint/correctness/useExhaustiveDependencies: 自定义代码注入后需重新解析 window.CustomLinks
@@ -155,11 +155,23 @@ export function Nav({ siteName }: { siteName: string }) {
 
           <button
             type="button"
-            onClick={() => setTheme(resolved === "dark" ? "light" : "dark")}
+            onClick={() =>
+              setTheme(theme === "system" ? "light" : theme === "light" ? "dark" : "system")
+            }
             className="hit-target rounded-md p-2 text-muted transition-colors hover:bg-surface-2 hover:text-fg"
-            aria-label="Toggle theme"
+            aria-label={
+              theme === "system"
+                ? t("themeSystem")
+                : theme === "light"
+                  ? t("themeLight")
+                  : t("themeDark")
+            }
           >
-            {resolved === "dark" ? (
+            {theme === "system" ? (
+              <svg viewBox="0 0 16 16" fill="currentColor" className="size-4">
+                <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm0 1a6 6 0 0 1 0 12V2Z" />
+              </svg>
+            ) : resolved === "dark" ? (
               <svg viewBox="0 0 16 16" fill="currentColor" className="size-4">
                 <path d="M8 1.5a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0V2a.5.5 0 0 1 .5-.5ZM8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm0 1.5a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-1 0v-1a.5.5 0 0 1 .5-.5ZM2 8a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1A.5.5 0 0 1 2 8Zm10.5-.5a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1ZM3.05 3.05a.5.5 0 0 1 .707 0l.707.707a.5.5 0 1 1-.707.707l-.707-.707a.5.5 0 0 1 0-.707Zm8.486 8.486a.5.5 0 0 1 .707 0l.707.707a.5.5 0 0 1-.707.707l-.707-.707a.5.5 0 0 1 0-.707Zm1.414-8.486a.5.5 0 0 1 0 .707l-.707.707a.5.5 0 1 1-.707-.707l.707-.707a.5.5 0 0 1 .707 0ZM4.464 11.536a.5.5 0 0 1 0 .707l-.707.707a.5.5 0 0 1-.707-.707l.707-.707a.5.5 0 0 1 .707 0Z" />
               </svg>
