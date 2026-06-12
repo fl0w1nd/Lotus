@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { LotusMark } from "@/components/Logo";
 import { ServerCard } from "@/components/ServerCard";
+import { ServerRow } from "@/components/ServerRow";
 import { StatsBar } from "@/components/StatsBar";
-import { WorldMap } from "@/components/WorldMap";
 import { fetchServerGroups } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { cn, isServerOnline, memPercent } from "@/lib/utils";
@@ -17,6 +17,14 @@ export default function Home() {
   const [groupId, setGroupId] = useState<number | null>(null);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("default");
+  const [viewMode, setViewMode] = useState<"card" | "list">(() => {
+    return (localStorage.getItem("lotus-view-mode") as "card" | "list") || "card";
+  });
+
+  const toggleViewMode = (mode: "card" | "list") => {
+    setViewMode(mode);
+    localStorage.setItem("lotus-view-mode", mode);
+  };
   // 打字过滤走低优先级更新,避免输入卡顿
   const deferredQuery = useDeferredValue(query);
 
@@ -89,10 +97,7 @@ export default function Home() {
     <div className="flex flex-col gap-4 pt-5">
       <StatsBar />
 
-      {/* 节点分布点阵地图 */}
-      <WorldMap />
-
-      {/* 工具栏:分组(可横滑) + 搜索 + 排序 */}
+      {/* 工具栏:分组(可横滑) + 搜索 + 排序 + 视图切换 */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="no-scrollbar -mx-4 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <GroupPill
@@ -151,33 +156,107 @@ export default function Home() {
               </option>
             ))}
           </select>
+
+          {/* 视图模式切换 */}
+          <div className="flex items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => toggleViewMode("card")}
+              className={cn(
+                "p-1 rounded-md transition-all",
+                viewMode === "card"
+                  ? "bg-surface-2 text-fg shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-line-strong/10"
+                  : "text-muted hover:text-fg-2",
+              )}
+              title="Card View"
+            >
+              <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                className="size-3.5"
+                stroke="currentColor"
+                strokeWidth="1.3"
+              >
+                <rect x="2.5" y="2.5" width="5" height="5" rx="1" />
+                <rect x="8.5" y="2.5" width="5" height="5" rx="1" />
+                <rect x="2.5" y="8.5" width="5" height="5" rx="1" />
+                <rect x="8.5" y="8.5" width="5" height="5" rx="1" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => toggleViewMode("list")}
+              className={cn(
+                "p-1 rounded-md transition-all",
+                viewMode === "list"
+                  ? "bg-surface-2 text-fg shadow-[0_1px_2px_rgba(0,0,0,0.05)] border border-line-strong/10"
+                  : "text-muted hover:text-fg-2",
+              )}
+              title="List View"
+            >
+              <svg
+                viewBox="0 0 16 16"
+                fill="none"
+                className="size-3.5"
+                stroke="currentColor"
+                strokeWidth="1.3"
+              >
+                <line x1="2.5" y1="4.5" x2="13.5" y2="4.5" strokeLinecap="round" />
+                <line x1="2.5" y1="8.5" x2="13.5" y2="8.5" strokeLinecap="round" />
+                <line x1="2.5" y1="12.5" x2="13.5" y2="12.5" strokeLinecap="round" />
+                <circle cx="2.5" cy="4.5" r="0.5" fill="currentColor" />
+                <circle cx="2.5" cy="8.5" r="0.5" fill="currentColor" />
+                <circle cx="2.5" cy="12.5" r="0.5" fill="currentColor" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 服务器网格 */}
+      {/* 服务器网格/列表 */}
       {!snapshot ? (
         // 冷启动骨架屏,避免闪现"暂无服务器"
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div
+          className={cn(
+            viewMode === "card"
+              ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              : "flex flex-col gap-2.5",
+          )}
+        >
           {Array.from({ length: 8 }, (_, i) => (
             <div
               key={i}
-              className="card h-[200px] animate-pulse"
+              className={cn("card animate-pulse", viewMode === "card" ? "h-[200px]" : "h-[54px]")}
               style={{ animationDelay: `${i * 80}ms` }}
             />
           ))}
         </div>
       ) : filtered.length > 0 ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4 xl:grid-cols-4">
-          {filtered.map((s, i) => (
-            <ServerCard
-              key={s.id}
-              server={s}
-              online={isServerOnline(now, s)}
-              index={i}
-              animateIn={!introDone.current}
-            />
-          ))}
-        </div>
+        viewMode === "card" ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:gap-4 xl:grid-cols-4">
+            {filtered.map((s, i) => (
+              <ServerCard
+                key={s.id}
+                server={s}
+                online={isServerOnline(now, s)}
+                index={i}
+                animateIn={!introDone.current}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {filtered.map((s, i) => (
+              <ServerRow
+                key={s.id}
+                server={s}
+                online={isServerOnline(now, s)}
+                index={i}
+                animateIn={!introDone.current}
+              />
+            ))}
+          </div>
+        )
       ) : (
         <div className="card flex flex-col items-center justify-center gap-3 py-20">
           <LotusMark className="size-10 text-faint opacity-60" />
