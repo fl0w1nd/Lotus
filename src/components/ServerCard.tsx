@@ -27,6 +27,19 @@ interface ServerCardProps {
   animateIn?: boolean;
 }
 
+function parseTrafficLimit(volStr?: string): number | null {
+  if (!volStr) return null;
+  const match = volStr.match(/^(\d+(?:\.\d+)?)\s*([KMGT]B|[KMGT])/i);
+  if (!match) return null;
+  const val = parseFloat(match[1]);
+  const unit = match[2].toUpperCase();
+  if (unit.startsWith("T")) return val * 1024 * 1024 * 1024 * 1024;
+  if (unit.startsWith("G")) return val * 1024 * 1024 * 1024;
+  if (unit.startsWith("M")) return val * 1024 * 1024;
+  if (unit.startsWith("K")) return val * 1024;
+  return val;
+}
+
 export const ServerCard = memo(function ServerCard({
   server,
   online,
@@ -43,6 +56,24 @@ export const ServerCard = memo(function ServerCard({
   const note = useMemo(() => parsePublicNote(server.public_note), [server.public_note]);
   const billing = note?.billingDataMod;
   const plan = note?.planDataMod;
+
+  const currentTransfer = useMemo(() => {
+    if (
+      plan?.trafficType === "3" ||
+      plan?.trafficType === "double" ||
+      plan?.trafficType === "both"
+    ) {
+      return server.state.net_out_transfer + server.state.net_in_transfer;
+    }
+    return server.state.net_out_transfer;
+  }, [server.state, plan]);
+
+  const trafficLimitBytes = useMemo(() => parseTrafficLimit(plan?.trafficVol), [plan?.trafficVol]);
+
+  const trafficPercent = useMemo(() => {
+    if (!trafficLimitBytes || trafficLimitBytes <= 0) return 0;
+    return (currentTransfer / trafficLimitBytes) * 100;
+  }, [currentTransfer, trafficLimitBytes]);
   const daysLeft = billingDaysLeft(billing);
   const billingTitle =
     billing?.amount && billing.amount !== "0"
@@ -50,6 +81,7 @@ export const ServerCard = memo(function ServerCard({
       : billing?.amount === "0"
         ? t("free")
         : "";
+
   const planTags = [
     plan?.networkRoute,
     plan?.bandwidth,
@@ -94,7 +126,7 @@ export const ServerCard = memo(function ServerCard({
         </span>
       </div>
 
-      {/* 平台信息 + 账单 */}
+      {/* 平台信息 */}
       <p className="-mt-2 flex items-center gap-1.5 font-mono text-[10.5px] text-faint">
         <OsIcon platform={server.host.platform} className="size-3 shrink-0 opacity-80" />
         <span className="min-w-0 flex-1 truncate">
@@ -102,22 +134,27 @@ export const ServerCard = memo(function ServerCard({
           {server.host.platform_version ? ` ${server.host.platform_version}` : ""}
           {server.host.arch ? ` · ${server.host.arch}` : ""}
         </span>
-        {daysLeft !== null && (
-          <span
-            title={billingTitle || undefined}
-            className={cn(
-              "tnum shrink-0",
-              daysLeft < 0 ? "text-down" : daysLeft <= 7 ? "text-warn" : "text-faint",
-            )}
-          >
-            {daysLeft < 0 ? t("expired") : `${daysLeft}${lang === "zh-CN" ? " 天" : "d"}`}
-          </span>
-        )}
       </p>
 
-      {/* 套餐标签 */}
-      {planTags.length > 0 && (
+      {/* 套餐标签 & 账单徽章 */}
+      {(planTags.length > 0 || daysLeft !== null) && (
         <div className="-mt-1.5 flex flex-wrap gap-1">
+          {daysLeft !== null && (
+            <span
+              title={billingTitle || undefined}
+              className={cn(
+                "rounded border px-1.5 py-px font-mono text-[10px] leading-relaxed font-semibold shrink-0",
+                daysLeft < 0
+                  ? "border-down/20 bg-down/10 text-down"
+                  : daysLeft <= 7
+                    ? "border-warn/20 bg-warn/10 text-warn"
+                    : "border-line bg-surface text-muted",
+              )}
+            >
+              {billingTitle ? `${billingTitle} · ` : ""}
+              {daysLeft < 0 ? t("expired") : `${daysLeft}${lang === "zh-CN" ? "天" : "d"}`}
+            </span>
+          )}
           {planTags.map((tag) => (
             <span
               key={tag}
@@ -145,28 +182,62 @@ export const ServerCard = memo(function ServerCard({
       </div>
 
       {/* 网络 */}
-      <div className="dim-offline flex items-end justify-between gap-3 border-t border-line pt-3">
-        <div className="flex flex-col gap-1">
-          <div className="tnum flex items-baseline gap-3 font-mono text-[11.5px] text-fg-2">
-            <span className="inline-flex items-baseline gap-1">
-              <span className="text-[10px] text-c-out">↑</span>
-              {formatSpeed(server.state.net_out_speed)}
-            </span>
-            <span className="inline-flex items-baseline gap-1">
-              <span className="text-[10px] text-c-in">↓</span>
-              {formatSpeed(server.state.net_in_speed)}
-            </span>
-          </div>
-          {showTransfer && (
-            <div className="tnum flex items-baseline gap-3 font-mono text-[10px] text-faint">
-              <span>{formatBytes(server.state.net_out_transfer)}</span>
-              <span>{formatBytes(server.state.net_in_transfer)}</span>
+      <div className="dim-offline flex flex-col gap-2 border-t border-line pt-3">
+        <div className="flex items-end justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <div className="tnum flex items-baseline gap-3 font-mono text-[11.5px] text-fg-2">
+              <span className="inline-flex items-baseline gap-1">
+                <span className="text-[10px] text-c-out">↑</span>
+                {formatSpeed(server.state.net_out_speed)}
+              </span>
+              <span className="inline-flex items-baseline gap-1">
+                <span className="text-[10px] text-c-in">↓</span>
+                {formatSpeed(server.state.net_in_speed)}
+              </span>
             </div>
-          )}
+            {showTransfer && trafficLimitBytes === null && (
+              <div className="tnum flex items-baseline gap-3 font-mono text-[10px] text-faint">
+                <span>{formatBytes(server.state.net_out_transfer)}</span>
+                <span>{formatBytes(server.state.net_in_transfer)}</span>
+              </div>
+            )}
+          </div>
+          <div className="text-c-in opacity-70 transition-opacity group-hover:opacity-100">
+            <Sparkline values={downSeries} width={88} height={26} />
+          </div>
         </div>
-        <div className="text-c-in opacity-70 transition-opacity group-hover:opacity-100">
-          <Sparkline values={downSeries} width={88} height={26} />
-        </div>
+
+        {/* 流量限额进度条 */}
+        {showTransfer && trafficLimitBytes !== null && trafficLimitBytes > 0 && (
+          <div className="w-full">
+            <div className="mb-0.5 flex justify-between text-[9px] font-mono text-faint leading-none">
+              <span>
+                {plan?.trafficType === "3" ||
+                plan?.trafficType === "double" ||
+                plan?.trafficType === "both"
+                  ? lang === "zh-CN"
+                    ? "双向流量"
+                    : "Dual Traffic"
+                  : lang === "zh-CN"
+                    ? "出站流量"
+                    : "Outbound Traffic"}
+              </span>
+              <span>
+                {formatBytes(currentTransfer)} / {plan?.trafficVol} (
+                {Math.min(trafficPercent, 100).toFixed(0)}%)
+              </span>
+            </div>
+            <div className="h-[2px] w-full overflow-hidden rounded-full bg-line">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-500",
+                  trafficPercent >= 90 ? "bg-down" : trafficPercent >= 75 ? "bg-warn" : "bg-c-in",
+                )}
+                style={{ width: `${Math.min(trafficPercent, 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </Link>
   );
