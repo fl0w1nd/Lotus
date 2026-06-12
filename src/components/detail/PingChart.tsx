@@ -20,7 +20,7 @@ import { axisWidthFor, lossScale, type NiceScale, niceScale, tickFormat } from "
 
 /** tooltip 用精确值格式化 (轴刻度则按步长统一小数位) */
 function formatDelayValue(v: number): string {
-  return v >= 1000 ? `${(v / 1000).toFixed(2)}s` : `${v}ms`;
+  return v >= 1000 ? `${(v / 1000).toFixed(2)}s` : `${Math.round(v)}ms`;
 }
 
 type ChartRow = { t: number } & Record<string, number | null | undefined>;
@@ -73,7 +73,7 @@ function peakCutData(data: ChartRow[], monitorNames: string[]): ChartRow[] {
           ewmaHistory[key] === undefined
             ? processed
             : alpha * processed + (1 - alpha) * ewmaHistory[key];
-        smoothed[key] = ewmaHistory[key];
+        smoothed[key] = Math.round(ewmaHistory[key]);
       }
     }
 
