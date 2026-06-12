@@ -82,9 +82,50 @@ services:
     image: ghcr.io/nezhahq/nezha:latest
     volumes:
       - ./data:/dashboard/data
-      - ./lotus-dist:/dashboard/user-dist:ro   # 构建出的 dist 目录
+      - ./nezha-theme-lotus-dist:/dashboard/user-dist:ro   # 构建出的 dist 目录
     ports:
       - 8008:8008
+```
+
+#### ⚠️ 必需：前置反向代理
+
+> **为什么？** Nezha Dashboard 的 `GinCustomWriter`（`pkg/utils/gin_writer_wrapper.go`）在构造 `GinCustomWriter` 时将状态码固定为 `200`，拦截 `http.ServeContent` 返回的 `304 Not Modified` 并覆写为 `200`。但 `304` 响应按 HTTP 规范已剥离 `Content-Type` 与 body，浏览器收到畸形 `200` 空响应后丢弃缓存、执行空脚本，导致白屏。
+>
+> 必须在前置反向代理中剥离 `If-Modified-Since` / `If-None-Match` 请求头，迫使请求永远走无条件拉取路径，彻底绕过后端 bug。
+
+**Nginx（推荐）：**
+
+```nginx
+server {
+  listen 443 ssl;
+  server_name status.example.com;
+
+  location / {
+    proxy_pass http://127.0.0.1:8008;
+    proxy_set_header Host $host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_http_version 1.1;
+
+    # 必备：剥离条件请求头，绕过 Nezha 后端的 304→200 bug
+    proxy_set_header If-Modified-Since "";
+    proxy_set_header If-None-Match "";
+  }
+}
+```
+
+**Caddy：**
+
+```caddyfile
+status.example.com {
+    reverse_proxy {
+        to localhost:8008
+
+        # 必备：剥离条件请求头，绕过 Nezha 后端的 304→200 bug
+        header_down If-Modified-Since ""
+        header_down If-None-Match ""
+    }
+}
 ```
 
 ### 方式二:独立托管 + 反向代理
