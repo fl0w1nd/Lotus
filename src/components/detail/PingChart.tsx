@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   CartesianGrid,
@@ -14,7 +14,7 @@ import { fetchServerMonitor } from "@/lib/api";
 import { useIsLogin } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import type { MonitorPeriod } from "@/types/nezha";
+import type { MonitorPeriod, NezhaMonitor } from "@/types/nezha";
 import { AXIS_PROPS, GRID_PROPS, SERIES_COLORS, X_AXIS_PROPS } from "./ChartTheme";
 import { axisWidthFor, lossScale, type NiceScale, niceScale, tickFormat } from "./chartScale";
 
@@ -24,6 +24,127 @@ function formatDelayValue(v: number): string {
 }
 
 type ChartRow = { t: number } & Record<string, number | null | undefined>;
+
+const LONG_PERIOD_MIN_POINTS = 600;
+const LONG_PERIOD_MAX_POINTS = 1200;
+const LONG_PERIOD_FALLBACK_POINTS: Record<Exclude<MonitorPeriod, "1d">, number> = {
+  "7d": 840,
+  "30d": 960,
+};
+
+function monitorRefetchInterval(period: MonitorPeriod): number {
+  if (period === "30d") return 15 * 60_000;
+  if (period === "7d") return 5 * 60_000;
+  return 60_000;
+}
+
+function targetPointCount(period: MonitorPeriod, width: number): number {
+  if (period === "1d") return Number.POSITIVE_INFINITY;
+
+  const fallback = LONG_PERIOD_FALLBACK_POINTS[period];
+  const widthTarget = width > 0 ? Math.round(width * 1.25) : fallback;
+  return Math.min(LONG_PERIOD_MAX_POINTS, Math.max(LONG_PERIOD_MIN_POINTS, widthTarget));
+}
+
+function monitorTimeRange(monitors: NezhaMonitor[]): { min: number; max: number } | null {
+  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
+
+  for (const monitor of monitors) {
+    for (const ts of monitor.created_at ?? []) {
+      if (!Number.isFinite(ts)) continue;
+      min = Math.min(min, ts);
+      max = Math.max(max, ts);
+    }
+  }
+
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+  return { min, max };
+}
+
+function timestampForBucket(min: number, max: number, bucketCount: number, index: number): number {
+  if (bucketCount <= 1 || min === max) return Math.round(min);
+  return Math.round(min + ((max - min) * index) / (bucketCount - 1));
+}
+
+function inferredLossFromDelay(delay: number | null): number {
+  if (delay === null || delay <= 0) return 0;
+  if (delay >= 10_000) return 0.95;
+  if (delay >= 3_000) return Math.min(0.5, (delay - 3_000) / 20_000);
+  return 0;
+}
+
+function downsampleMonitorToBuckets(
+  monitor: NezhaMonitor,
+  bucketCount: number,
+  range: { min: number; max: number },
+): NezhaMonitor {
+  const span = Math.max(1, range.max - range.min);
+  const maxDelayByBucket: Array<number | null> = Array.from({ length: bucketCount }, () => null);
+  const lossByBucket = Array.from({ length: bucketCount }, () => 0);
+  const sampleCounts = Array.from({ length: bucketCount }, () => 0);
+  const failedCounts = Array.from({ length: bucketCount }, () => 0);
+  const hasBackendLoss = (monitor.packet_loss?.length ?? 0) > 0;
+
+  for (let i = 0; i < monitor.created_at.length; i++) {
+    const ts = monitor.created_at[i];
+    if (!Number.isFinite(ts)) continue;
+
+    const bucketIndex = Math.min(
+      bucketCount - 1,
+      Math.max(0, Math.floor(((ts - range.min) / span) * bucketCount)),
+    );
+    const delay = monitor.avg_delay[i];
+
+    if (typeof delay === "number" && Number.isFinite(delay)) {
+      sampleCounts[bucketIndex] += 1;
+      if (delay > 0) {
+        maxDelayByBucket[bucketIndex] = Math.max(maxDelayByBucket[bucketIndex] ?? delay, delay);
+      } else {
+        failedCounts[bucketIndex] += 1;
+      }
+    }
+
+    const backendLoss = monitor.packet_loss?.[i];
+    if (typeof backendLoss === "number" && Number.isFinite(backendLoss)) {
+      lossByBucket[bucketIndex] = Math.max(lossByBucket[bucketIndex], backendLoss);
+    }
+  }
+
+  const created_at = Array.from({ length: bucketCount }, (_, i) =>
+    timestampForBucket(range.min, range.max, bucketCount, i),
+  );
+  const avg_delay = maxDelayByBucket.map((delay) => delay ?? 0);
+  const packet_loss = lossByBucket.map((loss, i) => {
+    if (hasBackendLoss) return loss;
+    const timeoutLoss = sampleCounts[i] > 0 ? failedCounts[i] / sampleCounts[i] : 0;
+    return Math.max(timeoutLoss, inferredLossFromDelay(maxDelayByBucket[i]));
+  });
+
+  return {
+    ...monitor,
+    created_at,
+    avg_delay,
+    packet_loss,
+  };
+}
+
+function downsampleMonitors(
+  monitors: NezhaMonitor[],
+  period: MonitorPeriod,
+  targetPoints: number,
+): NezhaMonitor[] {
+  if (period === "1d" || !Number.isFinite(targetPoints)) return monitors;
+
+  const maxPointCount = Math.max(0, ...monitors.map((m) => m.created_at.length));
+  if (maxPointCount <= targetPoints) return monitors;
+
+  const range = monitorTimeRange(monitors);
+  if (!range) return monitors;
+
+  const bucketCount = Math.max(2, Math.floor(targetPoints));
+  return monitors.map((monitor) => downsampleMonitorToBuckets(monitor, bucketCount, range));
+}
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
@@ -242,10 +363,12 @@ function PingTooltip({
 
 export function PingChart({ serverId }: { serverId: number }) {
   const { t, lang } = useI18n();
+  const chartWrapRef = useRef<HTMLDivElement | null>(null);
   // 默认全选，toggle 选中/取消
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [period, setPeriod] = useState<MonitorPeriod>("1d");
   const [isPeakEnabled, setIsPeakEnabled] = useState(false);
+  const [chartWidth, setChartWidth] = useState(0);
 
   // 与官方主题一致: 1d 之外的区间仅登录用户可用, 登出后自动回落
   const isLogin = useIsLogin();
@@ -253,14 +376,39 @@ export function PingChart({ serverId }: { serverId: number }) {
     if (!isLogin && period !== "1d") setPeriod("1d");
   }, [isLogin, period]);
 
+  useEffect(() => {
+    const element = chartWrapRef.current;
+    if (!element) return;
+
+    const syncWidth = (width: number) => {
+      const rounded = Math.round(width);
+      setChartWidth((prev) => (Math.abs(prev - rounded) >= 8 ? rounded : prev));
+    };
+
+    syncWidth(element.getBoundingClientRect().width);
+
+    if (typeof ResizeObserver === "undefined") {
+      const handleResize = () => syncWidth(element.getBoundingClientRect().width);
+      window.addEventListener("resize", handleResize);
+      return () => window.removeEventListener("resize", handleResize);
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      syncWidth(entries[0]?.contentRect.width ?? element.getBoundingClientRect().width);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   const { data, isPlaceholderData } = useQuery({
     queryKey: ["monitor", serverId, period],
     queryFn: () => fetchServerMonitor(serverId, period),
     placeholderData: keepPreviousData,
-    refetchInterval: 60_000,
+    refetchInterval: monitorRefetchInterval(period),
   });
 
   const withDate = period !== "1d";
+  const pointBudget = useMemo(() => targetPointCount(period, chartWidth), [period, chartWidth]);
 
   const monitors = useMemo(
     () =>
@@ -268,8 +416,13 @@ export function PingChart({ serverId }: { serverId: number }) {
     [data],
   );
 
+  const sampledMonitors = useMemo(
+    () => downsampleMonitors(monitors, period, pointBudget),
+    [monitors, period, pointBudget],
+  );
+
   const monitorsWithLoss = useMemo(() => {
-    return monitors.map((m, index) => {
+    return sampledMonitors.map((m, index) => {
       let lossArray: number[] = [];
       if (m.packet_loss?.length) {
         lossArray = m.packet_loss.map((v) => v * 100);
@@ -285,7 +438,7 @@ export function PingChart({ serverId }: { serverId: number }) {
         avgLoss,
       };
     });
-  }, [monitors]);
+  }, [sampledMonitors]);
 
   // monitors 变化时同步全选
   const allNames = useMemo(
@@ -462,6 +615,7 @@ export function PingChart({ serverId }: { serverId: number }) {
         </div>
       </div>
       <div
+        ref={chartWrapRef}
         className={cn(
           "transition-opacity duration-300",
           isPlaceholderData && "pointer-events-none opacity-50",

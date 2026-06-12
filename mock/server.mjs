@@ -1,11 +1,15 @@
 /**
  * 本地 mock 哪吒 v2 后端:REST + WebSocket
  * 用法:node mock/server.mjs  (默认端口 8008)
+ * 认证模式:默认管理员态; 游客态 MOCK_AUTH=guest node mock/server.mjs
  */
 import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
 
 const PORT = process.env.PORT || 8008;
+const MOCK_AUTH = process.env.MOCK_AUTH ?? "admin";
+const MOCK_AUTH_GUEST_VALUES = new Set(["0", "false", "guest"]);
+const MOCK_AUTH_DEFAULT_ADMIN = MOCK_AUTH_GUEST_VALUES.has(MOCK_AUTH.toLowerCase()) === false;
 
 /* ---------- 模拟服务器数据 ---------- */
 
@@ -524,8 +528,8 @@ const unauthorized = (res) => {
   res.end(JSON.stringify({ success: false, error: "unauthorized" }));
 };
 
-/** 模拟登录态: 浏览器控制台执行 document.cookie = "nz-jwt=mock" 即视为已登录 */
-const isAuthed = (req) => (req.headers.cookie ?? "").includes("nz-jwt=");
+/** 模拟登录态:默认管理员态; 游客态仍可用 nz-jwt cookie 临时登录 */
+const isAuthed = (req) => MOCK_AUTH_DEFAULT_ADMIN || (req.headers.cookie ?? "").includes("nz-jwt=");
 
 const server = createServer((req, res) => {
   const url = new URL(req.url, "http://localhost");
@@ -593,5 +597,9 @@ setInterval(() => {
 }, 2000);
 
 server.listen(PORT, () => {
-  console.log(`[mock] nezha v2 backend at http://localhost:${PORT}`);
+  console.log(
+    `[mock] nezha v2 backend at http://localhost:${PORT} auth=${
+      MOCK_AUTH_DEFAULT_ADMIN ? "admin" : "guest"
+    }`,
+  );
 });

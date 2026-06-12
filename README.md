@@ -205,6 +205,9 @@ pnpm mock   # 终端 1：启动本地 mock 哪吒 v2 后端（REST + WS，端口
 pnpm dev    # 终端 2：启动 Vite 开发服务器
 ```
 
+本地 mock 默认管理员态，可直接测试网络监控 7 天 / 30 天；游客态用
+`MOCK_AUTH=guest pnpm mock`。
+
 对接真实面板调试（代理转发 API 与 WebSocket）：
 
 ```bash
