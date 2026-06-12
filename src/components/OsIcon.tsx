@@ -14,7 +14,7 @@ import {
 } from "simple-icons";
 import { cn } from "@/lib/utils";
 
-const ICON_MAP: Record<string, { path: string }> = {
+const ICON_MAP: Record<string, { path: string; hex: string }> = {
   ubuntu: siUbuntu,
   debian: siDebian,
   centos: siCentos,
@@ -41,27 +41,33 @@ export function OsIcon({ platform, className }: { platform?: string; className?:
   const key = (platform ?? "").toLowerCase();
 
   let path: string | null = null;
+  let hex: string | null = null;
   if (key.includes("windows")) {
     path = WINDOWS_PATH;
+    hex = "0078D4";
   } else {
     for (const [name, icon] of Object.entries(ICON_MAP)) {
       if (key.includes(name)) {
         path = icon.path;
+        hex = icon.hex;
         break;
       }
     }
   }
   // 未识别的 Linux 发行版回退到 Tux
-  if (!path && key) path = siLinux.path;
+  if (!path && key) {
+    path = siLinux.path;
+    hex = siLinux.hex;
+  }
   if (!path) return null;
 
   return (
     <svg
       viewBox="0 0 24 24"
-      className={cn("size-3.5 shrink-0 fill-current", className)}
+      className={cn("size-3.5 shrink-0", className)}
       aria-hidden
     >
-      <path d={path} />
+      <path d={path} fill={`#${hex}`} />
     </svg>
   );
 }

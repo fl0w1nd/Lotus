@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -13,7 +13,8 @@ import { fetchServerMetrics } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { cn, formatSpeed } from "@/lib/utils";
 import type { MetricPeriod, MetricType } from "@/types/nezha";
-import { AXIS_PROPS, ChartTooltip, GRID_PROPS } from "./ChartTheme";
+import { AXIS_PROPS, ChartTooltip, GRID_PROPS, X_AXIS_PROPS } from "./ChartTheme";
+import { axisWidthFor, niceScale, PERCENT_SCALE, speedScale, tickFormat } from "./chartScale";
 
 const METRICS: {
   key: MetricType;
@@ -44,10 +45,53 @@ export function HistoryChart({ serverId }: { serverId: number }) {
   });
 
   const meta = METRICS.find((m) => m.key === metric) ?? METRICS[0];
-  const points = (data?.data?.data_points ?? []).map((p) => ({
-    t: p.ts,
-    v: meta.unit === "speed" ? p.value : Math.round(p.value * 10) / 10,
-  }));
+  const points = useMemo(
+    () =>
+      (data?.data?.data_points ?? []).map((p) => ({
+        t: p.ts,
+        v: meta.unit === "speed" ? p.value : Math.round(p.value * 10) / 10,
+      })),
+    [data, meta.unit],
+  );
+
+  // 三类量纲的刻度策略:
+  // percent 固定 0-100; speed 按显示单位取 nice 刻度;
+  // raw (负载/进程/连接) 自动基线 — 数据悬浮高位时抬升, 保留波形对比
+  const { yDomain, yTicks, yTickFmt, yWidth, speedUnit } = useMemo(() => {
+    if (meta.unit === "percent") {
+      return {
+        yDomain: PERCENT_SCALE.domain,
+        yTicks: PERCENT_SCALE.ticks,
+        yTickFmt: (v: number) => String(v),
+        yWidth: 26,
+        speedUnit: "",
+      };
+    }
+    if (meta.unit === "speed") {
+      const max = points.length ? Math.max(...points.map((p) => p.v)) : 0;
+      const sc = speedScale(max);
+      return {
+        yDomain: sc.domain,
+        yTicks: sc.ticks,
+        yTickFmt: sc.format,
+        yWidth: axisWidthFor(sc.ticks.map(sc.format)),
+        speedUnit: sc.unit,
+      };
+    }
+    const vals = points.map((p) => p.v);
+    const sc = niceScale(vals.length ? Math.min(...vals) : 0, vals.length ? Math.max(...vals) : 0, {
+      baseline: "auto",
+      integer: metric !== "load1",
+    });
+    const fmt = tickFormat(sc);
+    return {
+      yDomain: sc.domain,
+      yTicks: sc.ticks,
+      yTickFmt: fmt,
+      yWidth: axisWidthFor(sc.ticks.map(fmt)),
+      speedUnit: "",
+    };
+  }, [points, meta.unit, metric]);
 
   const timeLabel = (ts: number) => {
     const d = new Date(ts);
@@ -71,7 +115,12 @@ export function HistoryChart({ serverId }: { serverId: number }) {
     <div className="card p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <h3 className="text-xs font-semibold tracking-tight">{t("history")}</h3>
+          <h3 className="text-xs font-semibold tracking-tight flex items-baseline gap-1">
+            <span>{t("history")}</span>
+            <span className="text-[10px] font-normal text-faint normal-case">
+              {meta.unit === "percent" ? "(%)" : meta.unit === "speed" ? `(${speedUnit})` : ""}
+            </span>
+          </h3>
           <span className="rounded border border-line px-1.5 py-px font-mono text-[10px] uppercase tracking-wider text-faint">
             tsdb
           </span>
@@ -131,12 +180,13 @@ export function HistoryChart({ serverId }: { serverId: number }) {
             </linearGradient>
           </defs>
           <CartesianGrid {...GRID_PROPS} />
-          <XAxis dataKey="t" tickFormatter={timeLabel} {...AXIS_PROPS} minTickGap={70} />
+          <XAxis dataKey="t" tickFormatter={timeLabel} {...X_AXIS_PROPS} minTickGap={70} />
           <YAxis
-            tickFormatter={(v: number) => fmt(v)}
+            tickFormatter={yTickFmt}
+            domain={yDomain}
+            ticks={yTicks}
             {...AXIS_PROPS}
-            width={meta.unit === "speed" ? 68 : meta.unit === "raw" ? 44 : 36}
-            domain={meta.unit === "percent" ? [0, 100] : undefined}
+            width={yWidth}
           />
           <Tooltip
             content={<ChartTooltip formatter={fmt} labelFormatter={(l) => timeLabel(Number(l))} />}

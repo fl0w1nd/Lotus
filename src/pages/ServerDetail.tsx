@@ -149,6 +149,12 @@ export default function ServerDetail() {
   const gpuValues = server.state.gpu ?? [];
   const temps = server.state.temperatures ?? [];
 
+  const truncateString = (str: string, maxLen = 32): string => {
+    if (!str) return "";
+    if (str.length <= maxLen) return str;
+    return str.slice(0, maxLen) + "…";
+  };
+
   return (
     <div className="flex flex-col gap-3 pt-5">
       {/* 返回 + 标题 */}
@@ -193,16 +199,20 @@ export default function ServerDetail() {
           {daysLeft !== null && (
             <span
               className={cn(
-                "rounded-full border border-line bg-surface px-2.5 py-1 font-mono text-[10.5px]",
-                daysLeft < 0 ? "text-down" : daysLeft <= 7 ? "text-warn" : "text-muted",
+                "rounded-full border px-2.5 py-1 font-mono text-[10.5px] font-semibold",
+                daysLeft < 0
+                  ? "border-down/20 bg-down/10 text-down"
+                  : daysLeft <= 7
+                    ? "border-warn/20 bg-warn/10 text-warn"
+                    : "border-line bg-surface text-muted",
               )}
             >
-              {daysLeft < 0 ? t("expired") : `${daysLeft} ${t("daysLeft")}`}
               {billing?.amount && billing.amount !== "0"
-                ? ` · ${billing.amount}${billing.cycle ? `/${billing.cycle}` : ""}`
+                ? `${billing.amount}${billing.cycle ? `/${billing.cycle}` : ""} · `
                 : billing?.amount === "0"
-                  ? ` · ${t("free")}`
+                  ? `${t("free")} · `
                   : ""}
+              {daysLeft < 0 ? t("expired") : `${daysLeft} ${t("daysLeft")}`}
             </span>
           )}
         </div>
@@ -216,9 +226,9 @@ export default function ServerDetail() {
           {server.host.virtualization && (
             <Chip title={t("virtualization")}>{server.host.virtualization}</Chip>
           )}
-          <Chip title={cpuModel}>{cpuModel}</Chip>
+          <Chip title={cpuModel}>{truncateString(cpuModel)}</Chip>
           {server.host.gpu?.length > 0 && (
-            <Chip title={server.host.gpu.join(" / ")}>{server.host.gpu[0]}</Chip>
+            <Chip title={server.host.gpu.join(" / ")}>{truncateString(server.host.gpu[0])}</Chip>
           )}
           {server.host.version && <Chip>agent v{server.host.version}</Chip>}
           {plan?.bandwidth && <Chip>{plan.bandwidth}</Chip>}

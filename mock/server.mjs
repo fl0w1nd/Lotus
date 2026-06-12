@@ -333,24 +333,65 @@ function snapshot(withPublicNote = false) {
 
 const MONITORS = ["电信 CT", "联通 CU", "移动 CM", "Cloudflare"];
 
-function monitorData(serverId) {
-  const points = 180;
-  const step = (24 * 3600 * 1000) / points;
-  const start = Date.now() - 24 * 3600 * 1000;
+const MONITOR_PERIOD_HOURS = { "1d": 24, "7d": 168, "30d": 720 };
+const MONITOR_PERIOD_POINTS = { "1d": 180, "7d": 336, "30d": 360 };
+
+function monitorData(serverId, period = "1d") {
+  const hours = MONITOR_PERIOD_HOURS[period] ?? 24;
+  const points = MONITOR_PERIOD_POINTS[period] ?? 180;
+  const step = (hours * 3600 * 1000) / points;
+  const start = Date.now() - hours * 3600 * 1000;
+  // 故障/抖动窗口以 180 点为基准定义, 其他区间按比例缩放
+  const f = points / 180;
   return MONITORS.map((name, mi) => {
     const base = 35 + mi * 40 + (serverId % 5) * 12;
     const created_at = [];
     const avg_delay = [];
-    // 移动 CM(mi=2)模拟劣化线路:偶发探测失败(0)+ 高抖动,用于验证丢包估算
-    const lossy = mi === 2;
     for (let i = 0; i < points; i++) {
       created_at.push(Math.round(start + i * step));
       const wave = Math.sin((i / points) * Math.PI * 4 + mi) * 14;
-      if (lossy && Math.random() < 0.06) {
-        avg_delay.push(0);
+
+      // 根据线路(mi)判断当前 i 是否属于故障/网络恶化区间
+      let isInMajorFailure = false; // 严重故障段，直接丢包/超时
+      let isInJitterPeriod = false; // 轻微抖动/恶化段，高延迟
+
+      if (mi === 0) { // 电信 CT
+        if (i >= 45 * f && i <= 52 * f) isInMajorFailure = true;
+        if (i >= 130 * f && i <= 138 * f) isInJitterPeriod = true;
+      } else if (mi === 1) { // 联通 CU
+        if (i >= 75 * f && i <= 80 * f) isInMajorFailure = true;
+        if (i >= 150 * f && i <= 158 * f) isInJitterPeriod = true;
+      } else if (mi === 2) { // 移动 CM
+        if (i >= 100 * f && i <= 112 * f) isInMajorFailure = true;
+        if (i >= 20 * f && i <= 30 * f) isInJitterPeriod = true;
+      } else if (mi === 3) { // Cloudflare
+        if (i >= 115 * f && i <= 122 * f) isInMajorFailure = true;
+        if (i >= 60 * f && i <= 68 * f) isInJitterPeriod = true;
+      }
+
+      if (isInMajorFailure) {
+        // 严重故障：60% 概率直接超时(0)，40% 概率极高延迟(3500ms~6000ms)
+        if (Math.random() < 0.6) {
+          avg_delay.push(0);
+        } else {
+          avg_delay.push(3500 + Math.random() * 2500);
+        }
+      } else if (isInJitterPeriod) {
+        // 网络抖动期：延迟增高，且有 15% 的偶发丢包
+        if (Math.random() < 0.15) {
+          avg_delay.push(0);
+        } else {
+          avg_delay.push(base + wave + (Math.random() - 0.5) * 180 + 300);
+        }
       } else {
-        const jitter = lossy ? (Math.random() - 0.5) * 90 : (Math.random() - 0.5) * 22;
-        avg_delay.push(Math.max(4, base + wave + jitter));
+        // 正常时期：偶尔有极小概率的偶发超时(如移动 2%，其他 0.5%)
+        const normalLossRate = mi === 2 ? 0.02 : 0.005;
+        if (Math.random() < normalLossRate) {
+          avg_delay.push(0);
+        } else {
+          const jitter = (Math.random() - 0.5) * 16;
+          avg_delay.push(Math.max(4, base + wave + jitter));
+        }
       }
     }
     return {
@@ -452,6 +493,14 @@ const json = (res, data) => {
   res.end(JSON.stringify({ success: true, data }));
 };
 
+const unauthorized = (res) => {
+  res.writeHead(401, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ success: false, error: "unauthorized" }));
+};
+
+/** 模拟登录态: 浏览器控制台执行 document.cookie = "nz-jwt=mock" 即视为已登录 */
+const isAuthed = (req) => (req.headers.cookie ?? "").includes("nz-jwt=");
+
 const server = createServer((req, res) => {
   const url = new URL(req.url, "http://localhost");
   const p = url.pathname;
@@ -475,12 +524,17 @@ const server = createServer((req, res) => {
   }
   if (p === "/api/v1/service") return json(res, serviceData());
   if (p === "/api/v1/profile") {
-    res.writeHead(401, { "Content-Type": "application/json" });
-    return res.end(JSON.stringify({ success: false, error: "unauthorized" }));
+    if (!isAuthed(req)) return unauthorized(res);
+    return json(res, { id: 1, username: "admin", role: 0 });
   }
 
   let m = p.match(/^\/api\/v1\/server\/(\d+)\/service$/);
-  if (m) return json(res, monitorData(Number(m[1])));
+  if (m) {
+    const period = url.searchParams.get("period") ?? "1d";
+    // 与真实后端一致: 1d 之外的区间需要登录
+    if (period !== "1d" && !isAuthed(req)) return unauthorized(res);
+    return json(res, monitorData(Number(m[1]), period));
+  }
 
   m = p.match(/^\/api\/v1\/server\/(\d+)\/metrics$/);
   if (m) {

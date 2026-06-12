@@ -75,6 +75,14 @@ export interface MonitorResponse {
   data: NezhaMonitor[] | null;
 }
 
+/** 网络监控时间区间; 1d 之外的区间需要登录 (与官方主题行为一致) */
+export type MonitorPeriod = "1d" | "7d" | "30d";
+
+export interface ProfileResponse {
+  success: boolean;
+  data: { id: number; username: string; role: number } | null;
+}
+
 export interface ServiceData {
   service_name: string;
   current_up: number;

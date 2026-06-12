@@ -11,7 +11,8 @@ import {
 import { useI18n } from "@/lib/i18n";
 import { formatSpeed } from "@/lib/utils";
 import { useNezhaWS } from "@/lib/ws";
-import { AXIS_PROPS, ChartTooltip, GRID_PROPS } from "./ChartTheme";
+import { AXIS_PROPS, ChartTooltip, GRID_PROPS, X_AXIS_PROPS } from "./ChartTheme";
+import { axisWidthFor, PERCENT_SCALE, speedScale } from "./chartScale";
 
 function timeLabel(t: number) {
   return new Date(t).toLocaleTimeString("en-GB", {
@@ -25,8 +26,7 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
   const { historyOf, snapshot } = useNezhaWS();
   const { t } = useI18n();
 
-  // snapshot 变化驱动重渲染,历史从 ref 读取
-  // biome-ignore lint/correctness/useExhaustiveDependencies: historyOf 读取 ref,以 snapshot 为更新信号
+  // biome-ignore lint/correctness/useExhaustiveDependencies: historyOf 读取的是 ref, snapshot 才是数据更新的触发器
   const data = useMemo(
     () =>
       historyOf(serverId).map((h) => ({
@@ -39,13 +39,25 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
     [snapshot, serverId],
   );
 
+  const maxSpeed = useMemo(() => {
+    if (!data || data.length === 0) return 0;
+    return Math.max(...data.map((d) => Math.max(d.up, d.down)));
+  }, [data]);
+
+  // 刻度在显示单位 (KB/MB/GB) 数值上取 nice number, 轴宽由实际标签精确预算
+  const speedSc = useMemo(() => speedScale(maxSpeed), [maxSpeed]);
+  const speedYWidth = axisWidthFor(speedSc.ticks.map(speedSc.format));
+
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
       {/* CPU / 内存 */}
       <div className="card p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-xs font-semibold tracking-tight">
-            {t("cpu")} / {t("memory")}
+          <h3 className="text-xs font-semibold tracking-tight flex items-baseline gap-1">
+            <span>
+              {t("cpu")} / {t("memory")}
+            </span>
+            <span className="text-[10px] font-normal text-faint normal-case">(%)</span>
           </h3>
           <div className="flex items-center gap-3 text-[10px] text-muted">
             <span className="flex items-center gap-1">
@@ -69,8 +81,14 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
               </linearGradient>
             </defs>
             <CartesianGrid {...GRID_PROPS} />
-            <XAxis dataKey="t" tickFormatter={timeLabel} {...AXIS_PROPS} minTickGap={50} />
-            <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} {...AXIS_PROPS} width={36} />
+            <XAxis dataKey="t" tickFormatter={timeLabel} {...X_AXIS_PROPS} minTickGap={50} />
+            <YAxis
+              domain={PERCENT_SCALE.domain}
+              ticks={PERCENT_SCALE.ticks}
+              tickFormatter={(v) => String(v)}
+              {...AXIS_PROPS}
+              width={26}
+            />
             <Tooltip
               content={
                 <ChartTooltip
@@ -106,7 +124,10 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
       {/* 网络 */}
       <div className="card p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-xs font-semibold tracking-tight">{t("netSpeed")}</h3>
+          <h3 className="text-xs font-semibold tracking-tight flex items-baseline gap-1">
+            <span>{t("netSpeed")}</span>
+            <span className="text-[10px] font-normal text-faint normal-case">({speedSc.unit})</span>
+          </h3>
           <div className="flex items-center gap-3 text-[10px] text-muted">
             <span className="flex items-center gap-1">
               <span className="h-px w-3 bg-c-out" /> {t("upload")}
@@ -129,8 +150,14 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
               </linearGradient>
             </defs>
             <CartesianGrid {...GRID_PROPS} />
-            <XAxis dataKey="t" tickFormatter={timeLabel} {...AXIS_PROPS} minTickGap={50} />
-            <YAxis tickFormatter={(v: number) => formatSpeed(v)} {...AXIS_PROPS} width={68} />
+            <XAxis dataKey="t" tickFormatter={timeLabel} {...X_AXIS_PROPS} minTickGap={50} />
+            <YAxis
+              domain={speedSc.domain}
+              ticks={speedSc.ticks}
+              tickFormatter={speedSc.format}
+              {...AXIS_PROPS}
+              width={speedYWidth}
+            />
             <Tooltip
               content={
                 <ChartTooltip

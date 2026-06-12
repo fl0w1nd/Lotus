@@ -1,7 +1,9 @@
 import type {
   MetricPeriod,
   MetricType,
+  MonitorPeriod,
   MonitorResponse,
+  ProfileResponse,
   ServerGroupResponse,
   ServerMetricsResponse,
   ServiceResponse,
@@ -24,8 +26,14 @@ export const fetchServerGroups = () => get<ServerGroupResponse>("/api/v1/server-
 
 export const fetchService = () => get<ServiceResponse>("/api/v1/service");
 
-export const fetchServerMonitor = (serverId: number) =>
-  get<MonitorResponse>(`/api/v1/server/${serverId}/service`);
+/** 未登录时游客返回 401, 用于探测登录态 */
+export const fetchProfile = () => get<ProfileResponse>("/api/v1/profile");
+
+/** period 为 1d 时不携带参数, 兼容不支持 period 的旧版后端 */
+export const fetchServerMonitor = (serverId: number, period: MonitorPeriod = "1d") =>
+  get<MonitorResponse>(
+    `/api/v1/server/${serverId}/service${period === "1d" ? "" : `?period=${period}`}`,
+  );
 
 export const fetchServerMetrics = (serverId: number, metric: MetricType, period: MetricPeriod) =>
   get<ServerMetricsResponse>(

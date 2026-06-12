@@ -1,15 +1,57 @@
 /** recharts 统一视觉:极细线、无噪点、卡片式 tooltip */
 
+import { Text } from "recharts";
+
+const TICK_FONT = {
+  fill: "var(--lt-faint)",
+  fontSize: 10,
+  fontFamily: "Geist Mono, ui-monospace, monospace",
+};
+
 export const AXIS_PROPS = {
   stroke: "transparent",
   tickLine: false as const,
   axisLine: false as const,
-  tick: {
-    fill: "var(--lt-faint)",
-    fontSize: 10,
-    fontFamily: "Geist Mono, ui-monospace, monospace",
-    whiteSpace: "nowrap" as const,
-  },
+  tick: TICK_FONT,
+};
+
+interface EdgeTickProps {
+  x?: number;
+  y?: number;
+  payload?: { value?: number | string };
+  index?: number;
+  visibleTicksCount?: number;
+  tickFormatter?: (value: unknown, index: number) => string;
+  verticalAnchor?: "start" | "middle" | "end";
+}
+
+/**
+ * X 轴刻度: 首尾标签向内对齐。
+ * 末端时间标签默认居中锚定会溢出绘图区被 SVG 裁切, 这里首刻度左对齐、末刻度右对齐。
+ */
+export function EdgeTickX({
+  x,
+  y,
+  payload,
+  index = 0,
+  visibleTicksCount = 1,
+  tickFormatter,
+  verticalAnchor,
+}: EdgeTickProps) {
+  const anchor = index === 0 ? "start" : index === visibleTicksCount - 1 ? "end" : "middle";
+  const value = payload?.value;
+  return (
+    <Text x={x} y={y} verticalAnchor={verticalAnchor} textAnchor={anchor} {...TICK_FONT}>
+      {tickFormatter ? tickFormatter(value, index) : String(value ?? "")}
+    </Text>
+  );
+}
+
+/** X 轴公共配置: 边缘感知刻度 + 保留首尾 */
+export const X_AXIS_PROPS = {
+  ...AXIS_PROPS,
+  tick: <EdgeTickX />,
+  interval: "preserveStartEnd" as const,
 };
 
 /** 极淡的水平基准线,提供数值参照又不喧宾夺主 */
