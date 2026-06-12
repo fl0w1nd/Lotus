@@ -16,17 +16,69 @@ import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { MonitorPeriod } from "@/types/nezha";
 import { AXIS_PROPS, GRID_PROPS, SERIES_COLORS, X_AXIS_PROPS } from "./ChartTheme";
-import {
-  axisWidthFor,
-  delayTickFormatter,
-  lossScale,
-  type NiceScale,
-  niceScale,
-} from "./chartScale";
+import { axisWidthFor, lossScale, type NiceScale, niceScale, tickFormat } from "./chartScale";
 
 /** tooltip 用精确值格式化 (轴刻度则按步长统一小数位) */
 function formatDelayValue(v: number): string {
   return v >= 1000 ? `${(v / 1000).toFixed(2)}s` : `${v}ms`;
+}
+
+type ChartRow = { t: number } & Record<string, number | null | undefined>;
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function peakCutValue(values: number[]): number | null {
+  if (values.length === 0) return null;
+
+  const base = median(values);
+  const deviations = values.map((v) => Math.abs(v - base));
+  const medianDeviation = median(deviations) * 1.4826;
+  const validValues = values.filter(
+    (v) => Math.abs(v - base) <= 3 * medianDeviation && v <= base * 3,
+  );
+
+  if (validValues.length === 0) return base;
+
+  const alpha = 0.3;
+  let ewma = validValues[0];
+  for (let i = 1; i < validValues.length; i++) {
+    ewma = alpha * validValues[i] + (1 - alpha) * ewma;
+  }
+  return ewma;
+}
+
+function peakCutData(data: ChartRow[], monitorNames: string[]): ChartRow[] {
+  const windowSize = 11;
+  const alpha = 0.3;
+  const ewmaHistory: Record<string, number> = {};
+
+  return data.map((point, index) => {
+    if (index < windowSize - 1) return point;
+
+    const window = data.slice(index - windowSize + 1, index + 1);
+    const smoothed = { ...point };
+
+    for (const key of monitorNames) {
+      const values = window
+        .map((w) => w[key])
+        .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+      const processed = peakCutValue(values);
+
+      if (processed !== null) {
+        ewmaHistory[key] =
+          ewmaHistory[key] === undefined
+            ? processed
+            : alpha * processed + (1 - alpha) * ewmaHistory[key];
+        smoothed[key] = ewmaHistory[key];
+      }
+    }
+
+    return smoothed;
+  });
 }
 
 function timeLabel(t: number, withDate = false) {
@@ -193,6 +245,7 @@ export function PingChart({ serverId }: { serverId: number }) {
   // 默认全选，toggle 选中/取消
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [period, setPeriod] = useState<MonitorPeriod>("1d");
+  const [isPeakEnabled, setIsPeakEnabled] = useState(false);
 
   // 与官方主题一致: 1d 之外的区间仅登录用户可用, 登出后自动回落
   const isLogin = useIsLogin();
@@ -256,15 +309,25 @@ export function PingChart({ serverId }: { serverId: number }) {
         byTs.set(ts, row);
       });
     }
-    return [...byTs.entries()].sort((a, b) => a[0] - b[0]).map(([ts, row]) => ({ t: ts, ...row }));
+    return [...byTs.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([ts, row]) => ({ t: ts, ...row }) as ChartRow);
   }, [visibleMonitors]);
 
-  // 延迟轴: P95 裁剪尖刺 + 自动基线 (整体悬浮高位时抬升, 不再压成一条直线) + 显式 nice 刻度
+  const processedData = useMemo(() => {
+    if (!isPeakEnabled) return chartData;
+    return peakCutData(
+      chartData,
+      visibleMonitors.map((m) => m.monitor_name),
+    );
+  }, [chartData, isPeakEnabled, visibleMonitors]);
+
+  // 延迟轴: Peak cut 数据 + 自动基线 + 显式 nice 刻度
   // 丢包轴: 预设档位动态量程, 轻微丢包不放大、严重故障占满
   const { delayScale, delayFmt, delayYWidth, lossSc, lossYWidth } = useMemo(() => {
     const vals: number[] = [];
     let lossMax = 0;
-    for (const row of chartData as Record<string, number | null | undefined>[]) {
+    for (const row of processedData) {
       for (const m of visibleMonitors) {
         const v = row[m.monitor_name];
         if (typeof v === "number" && v > 0) vals.push(v);
@@ -279,15 +342,15 @@ export function PingChart({ serverId }: { serverId: number }) {
     } else {
       vals.sort((a, b) => a - b);
       const min = vals[0];
-      const p95 = vals[Math.min(vals.length - 1, Math.floor(vals.length * 0.95))];
-      scale = niceScale(min, p95, {
+      const max = vals[vals.length - 1];
+      scale = niceScale(min, max, {
         baseline: "auto",
         baselineRatio: 0.25,
         minSpanRatio: 0.1,
       });
     }
 
-    const fmt = delayTickFormatter(scale);
+    const fmt = tickFormat(scale, "ms");
     const loss = lossScale(lossMax);
     return {
       delayScale: scale,
@@ -296,7 +359,7 @@ export function PingChart({ serverId }: { serverId: number }) {
       lossSc: loss,
       lossYWidth: axisWidthFor(loss.ticks.map((v) => `${v}%`)),
     };
-  }, [chartData, visibleMonitors]);
+  }, [processedData, visibleMonitors]);
 
   if (!monitors.length) return null;
 
@@ -350,6 +413,15 @@ export function PingChart({ serverId }: { serverId: number }) {
               );
             })}
           </div>
+          <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-[10.5px] font-medium text-muted transition-colors hover:text-fg-2">
+            <input
+              type="checkbox"
+              checked={isPeakEnabled}
+              onChange={(e) => setIsPeakEnabled(e.currentTarget.checked)}
+              className="size-3 accent-[var(--lt-accent)]"
+            />
+            {t("peakCut")}
+          </label>
         </div>
         <div className="flex flex-wrap items-center gap-1">
           {monitorsWithLoss.map((m) => {
@@ -396,7 +468,7 @@ export function PingChart({ serverId }: { serverId: number }) {
         )}
       >
         <ResponsiveContainer width="100%" height={220}>
-          <ComposedChart data={chartData} margin={{ top: 8, right: 0, bottom: 0, left: 0 }}>
+          <ComposedChart data={processedData} margin={{ top: 8, right: 12, bottom: 0, left: 12 }}>
             <CartesianGrid {...GRID_PROPS} />
             <XAxis
               dataKey="t"
@@ -454,6 +526,7 @@ export function PingChart({ serverId }: { serverId: number }) {
                 yAxisId="delay"
                 type="monotone"
                 dataKey={m.monitor_name}
+                name={m.monitor_name}
                 stroke={SERIES_COLORS[m.index % SERIES_COLORS.length]}
                 strokeWidth={1.4}
                 dot={false}
