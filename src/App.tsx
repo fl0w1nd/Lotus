@@ -11,6 +11,7 @@ import { useI18n } from "./lib/i18n";
 import { CUSTOM_CODE_EVENT, injectCustomCode } from "./lib/inject";
 import { useTheme } from "./lib/theme";
 import Home from "./pages/Home";
+import NodeMapPage from "./pages/NodeMap";
 import ServerDetail from "./pages/ServerDetail";
 import Services from "./pages/Services";
 
@@ -97,6 +98,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/server/:id" element={<ServerDetail />} />
             <Route path="/services" element={<Services />} />
+            <Route path="/map" element={<NodeMapPage />} />
           </Routes>
         </ErrorBoundary>
       </main>

@@ -74,6 +74,9 @@ export function Nav({ siteName }: { siteName: string }) {
           <NavLink to="/" end className={tabClass} data-active={pathname === "/"}>
             {t("overview")}
           </NavLink>
+          <NavLink to="/map" className={tabClass} data-active={pathname.startsWith("/map")}>
+            {t("map")}
+          </NavLink>
           <NavLink
             to="/services"
             className={tabClass}
