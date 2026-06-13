@@ -96,7 +96,7 @@ docker compose up -d
 ```bash
 # 默认安装路径为 /opt/nezha/dashboard/
 unzip dist.zip
-sudo cp -r nezha-theme-lotus-dist /opt/nezha/dashboard/user-dist
+sudo cp -r nezha-theme-lotus-dist/. /opt/nezha/dashboard/user-dist
 
 # 重启服务
 sudo systemctl restart nezha-dashboard
