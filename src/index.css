@@ -237,6 +237,60 @@ body {
     inset 0 1px 0 oklch(1 0 0 / 6%);
 }
 
+/* 分段质感进度条:用 mask 把整条切成等宽段,gap 透出卡片底色 */
+.seg-bar {
+  --seg-w: 9px;
+  --seg-gap: 3px;
+  position: relative;
+  height: 7px;
+  width: 100%;
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--lt-fg) 9%, transparent);
+  -webkit-mask-image: repeating-linear-gradient(
+    to right,
+    #000 0 var(--seg-w),
+    transparent var(--seg-w) calc(var(--seg-w) + var(--seg-gap))
+  );
+  mask-image: repeating-linear-gradient(
+    to right,
+    #000 0 var(--seg-w),
+    transparent var(--seg-w) calc(var(--seg-w) + var(--seg-gap))
+  );
+  overflow: hidden;
+}
+
+.seg-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition:
+    width 0.7s cubic-bezier(0.21, 0.47, 0.32, 0.98),
+    background 0.4s ease;
+}
+
+/* 网络指示灯:在线有流量时呼吸,空闲/离线静止 */
+@keyframes live-breathe {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 45%, transparent);
+  }
+  50% {
+    opacity: 0.6;
+    box-shadow: 0 0 0 3px color-mix(in oklab, currentColor 0%, transparent);
+  }
+}
+
+.live-dot {
+  animation: live-breathe 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
+  }
+}
+
 /* 消除 Recharts 图表聚焦虚线 */
 .recharts-wrapper:focus,
 .recharts-surface:focus,

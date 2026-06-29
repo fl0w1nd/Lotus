@@ -214,9 +214,9 @@ function CycleCard({ cycle }: { cycle: CycleTransferData }) {
           );
         })}
       </div>
-      {serverIds.length > 0 && cycle.next_update?.[serverIds[0]] && (
+      {cycle.to && (
         <p className="font-mono text-[10.5px] text-faint">
-          {t("nextReset")}: {new Date(cycle.next_update[serverIds[0]]).toLocaleString()}
+          {t("nextReset")}: {new Date(cycle.to).toLocaleDateString()}
         </p>
       )}
     </div>

@@ -5,6 +5,7 @@ import { ServerCard } from "@/components/ServerCard";
 import { ServerRow } from "@/components/ServerRow";
 import { StatsBar } from "@/components/StatsBar";
 import { fetchServerGroups } from "@/lib/api";
+import { useCycleTransferMap } from "@/lib/cycle";
 import { useI18n } from "@/lib/i18n";
 import { cn, isServerOnline, memPercent } from "@/lib/utils";
 import { useNezhaWS } from "@/lib/ws";
@@ -47,6 +48,30 @@ export default function Home() {
   const groups = groupsData?.data ?? [];
   const servers = snapshot?.servers ?? [];
   const now = snapshot?.now ?? Date.now();
+  const showTransfer = window.ShowNetTransfer !== false;
+
+  // 周期流量(后端实测,需面板配 transfer_*_cycle 告警规则);任一卡片有则全员预留行以对齐
+  const cycleMap = useCycleTransferMap();
+  const reserveCycle = cycleMap.size > 0;
+
+  // 统一卡片各区高度:只要存在带套餐标签的卡片,所有卡片都预留标签行,消除高度参差
+  const reserveTags = useMemo(() => {
+    for (const s of servers) {
+      const note = s.public_note || "";
+      if (!note) continue;
+      if (
+        /"networkRoute"\s*:\s*"[^"]/.test(note) ||
+        /"bandwidth"\s*:\s*"[^"]/.test(note) ||
+        /"trafficVol"\s*:\s*"[^"]/.test(note) ||
+        /"extra"\s*:\s*"[^"]/.test(note) ||
+        /"IPv4"\s*:\s*"1"/.test(note) ||
+        /"IPv6"\s*:\s*"1"/.test(note)
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }, [servers]);
 
   const filtered = useMemo(() => {
     let list = servers;
@@ -241,6 +266,10 @@ export default function Home() {
                 online={isServerOnline(now, s)}
                 index={i}
                 animateIn={!introDone.current}
+                reserveTags={reserveTags}
+                reserveTraffic={showTransfer}
+                cycle={cycleMap.get(s.id)}
+                reserveCycle={reserveCycle}
               />
             ))}
           </div>
@@ -253,6 +282,7 @@ export default function Home() {
                 online={isServerOnline(now, s)}
                 index={i}
                 animateIn={!introDone.current}
+                cycle={cycleMap.get(s.id)}
               />
             ))}
           </div>
