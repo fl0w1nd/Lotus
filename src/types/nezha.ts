@@ -104,6 +104,17 @@ export interface CycleTransferData {
   next_update: { [serverId: string]: string };
 }
 
+/** 扁平化后的单服务器周期流量(来自 cycle_transfer_stats,后端按告警规则实测) */
+export interface ServerCycleInfo {
+  cycleName: string;
+  used: number;
+  max: number;
+  /** 周期起始 */
+  from: string;
+  /** 周期结束 = 下次重置时间(注意:不是 next_update,后者只是内部刷新时刻) */
+  to: string;
+}
+
 export interface ServiceResponse {
   success: boolean;
   data: {

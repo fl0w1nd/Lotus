@@ -28,6 +28,55 @@ export function formatUptime(seconds: number, lang: string): string {
   return zh ? `${Math.floor(seconds / 86400)} 天` : `${Math.floor(seconds / 86400)}d`;
 }
 
+export interface ValueUnit {
+  value: string;
+  unit: string;
+}
+
+/** 拆分在线时长为「数值 + 单位」,便于卡片页脚分行排版 */
+export function formatUptimeParts(seconds: number, lang: string): ValueUnit {
+  const zh = lang.startsWith("zh");
+  if (seconds < 3600) return { value: String(Math.floor(seconds / 60)), unit: zh ? "分钟" : "m" };
+  if (seconds < 86400)
+    return { value: String(Math.floor(seconds / 3600)), unit: zh ? "小时" : "h" };
+  return { value: String(Math.floor(seconds / 86400)), unit: zh ? "天" : "d" };
+}
+
+/** 拆分到期信息为「数值 + 单位」;null 表示无账单, 负数表示已到期 */
+export function formatExpiryParts(daysLeft: number | null, lang: string): ValueUnit {
+  const zh = lang.startsWith("zh");
+  if (daysLeft == null) return { value: "—", unit: "" };
+  if (daysLeft < 0) return { value: zh ? "已到期" : "Expired", unit: "" };
+  if (daysLeft >= 365) {
+    const years = daysLeft / 365;
+    return { value: years.toFixed(years >= 10 ? 0 : 1), unit: zh ? "年" : "y" };
+  }
+  return { value: String(daysLeft), unit: zh ? "天" : "d" };
+}
+
+/** 离线时长(基于 last_active),null 表示无有效时间戳 */
+export function formatOfflineDuration(lastActiveIso: string, lang: string): ValueUnit | null {
+  if (!lastActiveIso || lastActiveIso.startsWith("000")) return null;
+  const then = parseISOTimestamp(lastActiveIso);
+  if (Number.isNaN(then)) return null;
+  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  return formatUptimeParts(seconds, lang);
+}
+
+/**
+ * 到期剩余天数 → 连续热力色(oklch)。
+ * 越临近到期越偏红,90 天以上趋于品牌绿;null 取静默灰。
+ */
+export function expireHeatColor(daysLeft: number | null | undefined): string {
+  if (daysLeft == null) return "var(--color-muted)";
+  if (daysLeft <= 0) return "oklch(0.64 0.21 25)";
+  const t = Math.min(Math.max(daysLeft / 90, 0), 1);
+  const hue = 25 + t * 137; // 红(25) → 绿(162)
+  const light = 0.64 + t * 0.06;
+  const chroma = 0.2 - t * 0.04;
+  return `oklch(${light.toFixed(3)} ${chroma.toFixed(3)} ${hue.toFixed(1)})`;
+}
+
 export function parseISOTimestamp(iso: string): number {
   return new Date(iso).getTime();
 }
