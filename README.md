@@ -113,12 +113,37 @@ server {
   listen 443 ssl;
   server_name status.example.com;
 
+  location ^~ /proto.NezhaService/ {
+    grpc_pass grpc://127.0.0.1:8008;
+    grpc_set_header Host $host;
+    grpc_set_header nz-realip $remote_addr;
+    grpc_read_timeout 600s;
+    grpc_send_timeout 600s;
+    grpc_socket_keepalive on;
+    grpc_buffer_size 4m;
+    client_max_body_size 10m;
+  }
+
+  location ~* ^/api/v1/ws/(server|terminal|file)(.*)$ {
+    proxy_pass http://127.0.0.1:8008;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header nz-realip $remote_addr;
+    proxy_set_header Origin https://$host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+  }
+
   location / {
     proxy_pass http://127.0.0.1:8008;
     proxy_set_header Host $host;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_http_version 1.1;
+    proxy_set_header nz-realip $remote_addr;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+    proxy_max_temp_file_size 0;
 
     # 必备：剥离条件请求头，绕过 Nezha 后端的 304→200 bug
     proxy_set_header If-Modified-Since "";
@@ -131,22 +156,52 @@ server {
 
 ```caddyfile
 status.example.com {
-    reverse_proxy {
-        to localhost:8008
+    @grpc path /proto.NezhaService/*
+    handle @grpc {
+        reverse_proxy h2c://127.0.0.1:8008 {
+            header_up Host {host}
+            header_up nz-realip {remote_host}
+            response_buffers 4MiB
+        }
+    }
 
-        # 必备：剥离条件请求头，绕过 Nezha 后端的 304→200 bug
-        header_down If-Modified-Since ""
-        header_down If-None-Match ""
+    @ws path_regexp ws ^/api/v1/ws/(server|terminal|file).*
+    handle @ws {
+        reverse_proxy 127.0.0.1:8008 {
+            header_up Host {host}
+            header_up Origin https://{host}
+            header_up nz-realip {remote_host}
+        }
+    }
+
+    handle {
+        reverse_proxy 127.0.0.1:8008 {
+            header_up Host {host}
+            header_up nz-realip {remote_host}
+
+            # 必备：剥离条件请求头，绕过 Nezha 后端的 304→200 bug
+            header_up -If-Modified-Since
+            header_up -If-None-Match
+        }
     }
 }
 ```
+
+Cloudflare 代理开启时，`nz-realip` 可改为：
+
+```caddyfile
+header_up nz-realip {http.request.header.CF-Connecting-IP}
+```
+
+Caddy 的条件请求头处理使用 `header_up`，作用于浏览器发往 Dashboard 的请求。
+Docker Compose 场景可将示例中的 `127.0.0.1:8008` 统一替换为 `nezha-dashboard:3001`。
 
 ### 其他部署方式
 
 <details>
 <summary>📦 方式二：独立托管 + 反向代理</summary>
 
-将 `dist/` 部署到任意静态服务（nginx / Caddy / CDN），将 `/api/v1/` 反代到面板并保留 WebSocket 升级头。本主题使用 Hash 路由，不需要 SPA fallback：
+将 `dist/` 部署到任意静态服务（nginx / Caddy / CDN），将 `/api/v1/` 反代到面板并保留 WebSocket 升级头。本主题使用 Hash 路由，静态服务可直接返回入口文件与资源：
 
 ```nginx
 server {
