@@ -120,7 +120,6 @@ server {
     grpc_read_timeout 600s;
     grpc_send_timeout 600s;
     grpc_socket_keepalive on;
-    grpc_buffer_size 4m;
     client_max_body_size 10m;
   }
 
@@ -161,7 +160,6 @@ status.example.com {
         reverse_proxy h2c://127.0.0.1:8008 {
             header_up Host {host}
             header_up nz-realip {remote_host}
-            response_buffers 4MiB
         }
     }
 
