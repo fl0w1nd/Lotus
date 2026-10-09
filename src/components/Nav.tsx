@@ -51,8 +51,8 @@ export function Nav({ siteName }: { siteName: string }) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-bg/75 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-screen-xl items-center gap-2 px-4 sm:px-6">
-        <Link to="/" className="flex min-w-0 shrink-0 items-center gap-2.5">
+      <div className="mx-auto flex max-w-screen-xl flex-wrap items-center gap-x-2 px-4 sm:h-14 sm:flex-nowrap sm:px-6">
+        <Link to="/" className="flex min-w-0 shrink-0 items-center gap-2.5 max-sm:h-12">
           <LotusMark className="size-6 shrink-0 text-accent" />
           <div className="flex min-w-0 items-baseline gap-2">
             <span className="max-w-36 truncate text-[15px] font-semibold tracking-tight sm:max-w-none">
@@ -66,10 +66,10 @@ export function Nav({ siteName }: { siteName: string }) {
           </div>
         </Link>
 
-        {/* 移动端可横向滑动,自定义外链不丢失 */}
+        {/* 移动端独占第二行(站名 + 操作区已占满首行),可横向滑动,自定义外链不丢失 */}
         <nav
           ref={navRef}
-          className="no-scrollbar relative ml-2 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto sm:ml-4 sm:flex-none"
+          className="no-scrollbar relative flex min-w-0 items-center gap-0.5 overflow-x-auto max-sm:order-last max-sm:-mx-2.5 max-sm:w-full sm:ml-4 sm:flex-none"
         >
           <NavLink to="/" end className={tabClass} data-active={pathname === "/"}>
             {t("overview")}
