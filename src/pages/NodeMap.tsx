@@ -134,13 +134,10 @@ export default function NodeMapPage() {
             </div>
             <div className="flex flex-col border-l border-line pl-3">
               <span className="text-[10px] text-muted tracking-wider uppercase font-medium">
-                {t("regions")}
+                {t("regionsLabel")}
               </span>
               <span className="text-xl font-semibold tracking-tight text-fg">
-                {stats.totalRegions}{" "}
-                <span className="text-xs text-faint">
-                  {lang === "zh-CN" ? "个地区" : "regions"}
-                </span>
+                {stats.totalRegions} <span className="text-xs text-faint">{t("regions")}</span>
               </span>
             </div>
           </div>

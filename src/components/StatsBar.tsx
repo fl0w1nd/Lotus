@@ -55,7 +55,7 @@ export function StatsBar() {
           <span className="text-sm text-faint">/ {stats.total}</span>
         </span>
       </Stat>
-      <Stat label={t("regions")}>
+      <Stat label={t("regionsLabel")}>
         <NumberFlow value={stats.regions} />
       </Stat>
       <Stat label={t("netSpeed")}>
