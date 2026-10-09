@@ -251,7 +251,13 @@ export const ServerCard = memo(function ServerCard({
 
         {/* 周期流量(后端按计费周期实测,重启不清零) */}
         {reserveCycle && (
-          <div className="flex min-h-[34px] flex-col justify-center">
+          <div
+            className={cn(
+              "min-h-[34px] flex-col justify-center",
+              // 占位只为多列时对齐卡片;单列(< sm)下无数据就不留白
+              cycle && cycle.max > 0 ? "flex" : "hidden sm:flex",
+            )}
+          >
             {cycle && cycle.max > 0 ? (
               <div className="w-full" title={cycleTitle}>
                 <div className="mb-1 flex items-baseline justify-between gap-2 font-mono text-[9px] leading-none">
