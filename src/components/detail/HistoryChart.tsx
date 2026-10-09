@@ -18,7 +18,16 @@ import { axisWidthFor, niceScale, PERCENT_SCALE, speedScale, tickFormat } from "
 
 const METRICS: {
   key: MetricType;
-  labelKey: "cpu" | "memory" | "disk" | "netIn" | "netOut" | "load" | "process" | "connections";
+  labelKey:
+    | "cpu"
+    | "memory"
+    | "disk"
+    | "gpu"
+    | "netIn"
+    | "netOut"
+    | "load"
+    | "process"
+    | "connections";
   unit: "percent" | "speed" | "raw";
   /** 与实时图表保持一致的语义色 */
   color: string;
@@ -26,6 +35,7 @@ const METRICS: {
   { key: "cpu", labelKey: "cpu", unit: "percent", color: "var(--color-c-cpu)" },
   { key: "memory", labelKey: "memory", unit: "percent", color: "var(--color-c-mem)" },
   { key: "disk", labelKey: "disk", unit: "percent", color: "var(--color-c-disk)" },
+  { key: "gpu", labelKey: "gpu", unit: "percent", color: "var(--lt-accent)" },
   { key: "net_in_speed", labelKey: "netIn", unit: "speed", color: "var(--color-c-in)" },
   { key: "net_out_speed", labelKey: "netOut", unit: "speed", color: "var(--color-c-out)" },
   { key: "load1", labelKey: "load", unit: "raw", color: "var(--lt-accent)" },
@@ -33,7 +43,7 @@ const METRICS: {
   { key: "tcp_conn", labelKey: "connections", unit: "raw", color: "var(--color-c-in)" },
 ];
 
-export function HistoryChart({ serverId }: { serverId: number }) {
+export function HistoryChart({ serverId, hasGpu }: { serverId: number; hasGpu?: boolean }) {
   const { t } = useI18n();
   const [metric, setMetric] = useState<MetricType>("cpu");
   const [period, setPeriod] = useState<MetricPeriod>("1d");
@@ -127,7 +137,7 @@ export function HistoryChart({ serverId }: { serverId: number }) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5">
-            {METRICS.map((m) => (
+            {METRICS.filter((m) => m.key !== "gpu" || hasGpu).map((m) => (
               <button
                 key={m.key}
                 type="button"

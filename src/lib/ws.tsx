@@ -45,6 +45,7 @@ const STATE_DEFAULTS: ServerState = {
   process_count: 0,
   temperatures: [],
   gpu: [],
+  gpus: [],
 };
 
 /**

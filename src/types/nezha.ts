@@ -47,6 +47,15 @@ export interface ServerState {
   process_count: number;
   temperatures: { Name: string; Temperature: number }[];
   gpu: number[];
+  /** v2.3.9+ (agent v2.3.5+) 逐卡状态,与 host.gpu 按下标对齐;旧版后端无此字段 */
+  gpus: GPUStat[];
+}
+
+/** 显存单位 MiB;memory_total 缺省表示该厂商不上报显存(未知),而非 0 */
+export interface GPUStat {
+  utilization: number;
+  memory_used?: number;
+  memory_total?: number;
 }
 
 export interface ServerGroup {

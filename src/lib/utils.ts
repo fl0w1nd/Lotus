@@ -96,6 +96,28 @@ export function diskPercent(s: NezhaServer): number {
   return (s.state.disk_used / s.host.disk_total) * 100;
 }
 
+export interface GpuInfo {
+  name: string;
+  utilization: number;
+  /** 字节;memTotal 为 0 表示显存未知 */
+  memUsed: number;
+  memTotal: number;
+}
+
+/**
+ * 合并逐卡 GPU 状态。v2.3.9+ 后端下发 state.gpus(含显存,MiB),
+ * 旧版只有 state.gpu(仅利用率);两者与 host.gpu 均按下标对齐。
+ */
+export function gpuInfos(s: NezhaServer): GpuInfo[] {
+  const { gpu, gpus } = s.state;
+  return Array.from({ length: Math.max(gpu.length, gpus.length) }, (_, i) => ({
+    name: s.host.gpu[i] ?? "",
+    utilization: gpus[i]?.utilization ?? gpu[i] ?? 0,
+    memUsed: (gpus[i]?.memory_used ?? 0) * 1024 ** 2,
+    memTotal: (gpus[i]?.memory_total ?? 0) * 1024 ** 2,
+  }));
+}
+
 const CYCLE_MONTHS: [RegExp, number][] = [
   [/^(月|m|mo|month|monthly)$/i, 1],
   [/^(季|q|qr|quarterly)$/i, 3],

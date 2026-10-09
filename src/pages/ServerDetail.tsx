@@ -15,6 +15,8 @@ import {
   diskPercent,
   formatBytes,
   formatUptime,
+  type GpuInfo,
+  gpuInfos,
   isServerOnline,
   memPercent,
   parsePublicNote,
@@ -44,6 +46,57 @@ function Tile({
         {value}
       </span>
       {sub && <span className="tnum truncate font-mono text-[10px] text-faint">{sub}</span>}
+    </div>
+  );
+}
+
+/** 第 9 块瓦片占满整行:逐卡利用率 + 显存(v2.3.9+,厂商不上报时省略) */
+function GpuTile({ gpus }: { gpus: GpuInfo[] }) {
+  const { t } = useI18n();
+  return (
+    <div className="col-span-2 flex min-w-0 flex-col gap-2 bg-surface px-4 py-3 sm:col-span-4 xl:col-span-8">
+      <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-faint">
+        {t("gpu")}
+      </span>
+      <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2 xl:grid-cols-4">
+        {gpus.map((g, i) => {
+          const memPct = g.memTotal ? Math.min((g.memUsed / g.memTotal) * 100, 100) : 0;
+          return (
+            <div key={i} className="flex min-w-0 flex-col gap-1">
+              <span className="tnum flex items-baseline gap-1.5 font-mono text-[15px] font-medium leading-tight">
+                {gpus.length > 1 && <span className="text-[10px] text-faint">#{i}</span>}
+                {g.utilization.toFixed(0)}%
+              </span>
+              {g.memTotal > 0 && (
+                <>
+                  <div className="h-1 overflow-hidden rounded-full bg-surface-2" aria-hidden>
+                    <span
+                      className="block h-full rounded-full transition-[width] duration-500"
+                      style={{
+                        width: `${memPct}%`,
+                        background:
+                          memPct >= 90
+                            ? "var(--color-down)"
+                            : memPct >= 75
+                              ? "var(--color-warn)"
+                              : "var(--color-c-mem)",
+                      }}
+                    />
+                  </div>
+                  <span className="tnum truncate font-mono text-[10px] text-faint">
+                    {t("vram")} {formatBytes(g.memUsed)} / {formatBytes(g.memTotal)}
+                  </span>
+                </>
+              )}
+              {g.name && (
+                <span className="truncate font-mono text-[10px] text-faint" title={g.name}>
+                  {g.name}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -146,7 +199,7 @@ export default function ServerDetail() {
       : cores && server.state.load_1 >= cores * 0.7
         ? "text-warn"
         : undefined;
-  const gpuValues = server.state.gpu ?? [];
+  const gpus = gpuInfos(server);
   const temps = server.state.temperatures ?? [];
 
   const truncateString = (str: string, maxLen = 32): string => {
@@ -297,26 +350,7 @@ export default function ServerDetail() {
               : undefined
           }
         />
-        {gpuValues.length > 0 && (
-          <Tile
-            label={t("gpu")}
-            // 第 9 块瓦片占满整行,顺带容纳多卡
-            className="col-span-2 sm:col-span-4 xl:col-span-8"
-            value={
-              <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                {gpuValues.map((v, i) => (
-                  <span key={i} className="inline-flex items-baseline gap-1.5">
-                    {gpuValues.length > 1 && (
-                      <span className="font-mono text-[10px] text-faint">#{i}</span>
-                    )}
-                    {v.toFixed(0)}%
-                  </span>
-                ))}
-              </span>
-            }
-            sub={server.host.gpu?.join(" / ")}
-          />
-        )}
+        {gpus.length > 0 && <GpuTile gpus={gpus} />}
       </section>
 
       {/* 温度传感器 */}
@@ -329,7 +363,7 @@ export default function ServerDetail() {
       <PingChart serverId={serverId} />
 
       {/* TSDB 历史指标(v2) */}
-      {tsdbEnabled && <HistoryChart serverId={serverId} />}
+      {tsdbEnabled && <HistoryChart serverId={serverId} hasGpu={server.host.gpu.length > 0} />}
     </div>
   );
 }

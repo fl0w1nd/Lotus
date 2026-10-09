@@ -156,6 +156,7 @@ const SPECS = [
     mem: 12,
     disk: 240,
     gpu: ["NVIDIA GeForce RTX 4090", "NVIDIA GeForce RTX 4090"],
+    gpuMem: 24564,
     temps: ["coretemp", "nvme", "gpu"],
     note: null,
   },
@@ -250,6 +251,7 @@ const servers = SPECS.map((s, i) => {
     load: 0.1 + Math.random() * 1.2,
     temp: 42 + Math.random() * 18,
     gpuUtil: (s.gpu ?? []).map(() => 10 + Math.random() * 60),
+    gpuMemPct: (s.gpu ?? []).map(() => 15 + Math.random() * 60),
   };
 });
 
@@ -277,6 +279,7 @@ function tick() {
     s.load = drift(s.load, 0.02, 8, 0.3);
     s.temp = drift(s.temp, 35, 88, 2.2);
     s.gpuUtil = s.gpuUtil.map((g) => drift(g, 1, 99, 7));
+    s.gpuMemPct = s.gpuMemPct.map((g) => drift(g, 2, 98, 4));
   }
 }
 
@@ -293,6 +296,22 @@ function temperatures(s) {
     }
   }
   return list;
+}
+
+/**
+ * v2.3.9+ 的逐卡 GPU 状态(显存单位 MiB)。未配置 gpuMem 的机器模拟
+ * 不上报显存的厂商:memory_* 被 omitempty 剥除,只剩 utilization。
+ */
+function gpus(s) {
+  return s.gpuUtil.map((utilization, i) =>
+    s.spec.gpuMem
+      ? {
+          utilization,
+          memory_used: Math.round((s.gpuMemPct[i] / 100) * s.spec.gpuMem),
+          memory_total: s.spec.gpuMem,
+        }
+      : { utilization },
+  );
 }
 
 /** 模拟后端 json omitempty:零值/空值字段从 JSON 中剥除 */
@@ -330,7 +349,7 @@ function snapshot(withPublicNote = false) {
         arch: s.spec.arch,
         virtualization: s.spec.virt || undefined,
         boot_time: s.boot,
-        version: "1.15.0",
+        version: "2.3.5",
       }),
       state: omitempty({
         cpu: s.offline ? 0 : s.cpu,
@@ -350,6 +369,7 @@ function snapshot(withPublicNote = false) {
         process_count: s.offline ? 0 : s.procs,
         temperatures: s.offline ? [] : temperatures(s),
         gpu: s.offline ? [] : s.gpuUtil,
+        gpus: s.offline ? [] : gpus(s),
       }),
     })),
   };
