@@ -62,3 +62,6 @@ jobs:
         with:
           files: dist.zip
           body_path: CHANGELOG.md
+          # 带连字符的 tag(如 v1.2.0-rc.1)标为预发布,
+          # 面板「前端管理」会明确标记,避免被当成正式版安装
+          prerelease: ${{ contains(github.ref_name, '-') }}
