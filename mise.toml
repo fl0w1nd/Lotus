@@ -1,11 +1,12 @@
 # 工具链与项目任务统一由 mise 管理
-#   mise install          安装下方固定版本的 Node 与 pnpm
+#   mise install          安装下方固定版本的 Node、pnpm 与 git-cliff
 #   mise run install      按 lockfile 安装依赖
 #   mise tasks            查看全部任务
 
 [tools]
 node = "22.23.4"
 pnpm = "11.5.2"
+git-cliff = "2.14.2"
 
 [env]
 # 让任务直接调用依赖里的 CLI(vite / tsc / biome)
@@ -60,4 +61,24 @@ if ! printf '%s\n' "$entries" | grep -qx 'dist/index.html' || [ ! -s dist/index.
   exit 1
 fi
 echo "dist.zip 结构校验通过"
+'''
+
+[tasks.changelog]
+description = "输出 LOTUS_VERSION 对应 tag 的更新说明(正式版从上一个正式版算起,合并中间的预发布)"
+run = '''
+set -eu
+tag="${LOTUS_VERSION:?请用 LOTUS_VERSION 指定 tag,如 v1.2.0}"
+case "$tag" in
+  *-*)
+    # 预发布:从上一个任意 tag 算起
+    prev=$(git describe --tags --abbrev=0 "$tag^" 2>/dev/null || true)
+    set --
+    ;;
+  *)
+    # 正式版:跳过预发布 tag,从上一个正式版算起,并把预发布的提交并入本版
+    prev=$(git describe --tags --abbrev=0 --exclude '*-*' "$tag^" 2>/dev/null || true)
+    set -- --ignore-tags '-'
+    ;;
+esac
+git-cliff --config cliff.toml --strip all "$@" "${prev:+$prev..}$tag"
 '''

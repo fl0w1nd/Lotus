@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0 # git-cliff 需要完整提交历史
 
-      # 按 mise.toml 安装固定版本的 Node 与 pnpm
+      # 按 mise.toml 安装固定版本的 Node、pnpm 与 git-cliff
       - uses: jdx/mise-action@v5
 
       - run: mise run install
@@ -29,15 +29,12 @@ jobs:
         env:
           LOTUS_VERSION: ${{ github.ref_name }}
 
-      # 按 conventional commits 自动分组生成本次 tag 的更新说明
+      # 按 conventional commits 分组生成更新说明。正式版从上一个正式版
+      # 算起并合并中间的预发布,避免只列出最后一个 rc 之后的提交
       - name: Generate changelog
-        uses: orhun/git-cliff-action@v4
-        id: changelog
-        with:
-          config: cliff.toml
-          args: --latest --strip all
+        run: mise run changelog > CHANGELOG.md
         env:
-          OUTPUT: CHANGELOG.md
+          LOTUS_VERSION: ${{ github.ref_name }}
 
       - name: Upload to release
         uses: softprops/action-gh-release@v3
