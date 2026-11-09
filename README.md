@@ -4,7 +4,7 @@
 
 **哪吒监控主题** · 跟随系统 · 玻璃质感 · 克制色彩
 
-为 [哪吒监控](https://github.com/nezhahq/nezha) **v2**（兼容 v1.x）打造的用户前端主题
+为 [哪吒监控](https://github.com/nezhahq/nezha) **v2**（v2.5.0+）打造的用户前端主题
 
 [![CI](https://github.com/fl0w1nd/Lotus/actions/workflows/ci.yml/badge.svg)](https://github.com/fl0w1nd/Lotus/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/fl0w1nd/Lotus?include_prereleases&label=release&color=blue)](https://github.com/fl0w1nd/Lotus/releases)
@@ -54,20 +54,38 @@
 
 ## 🚀 快速部署
 
-### 1. 下载主题包
+> **版本要求**：Lotus v1.2.0 起需要哪吒面板 **v2.5.0+**。面板低于 v2.5.0 时请继续使用 [Lotus v1.1.0](https://github.com/fl0w1nd/Lotus/releases/tag/v1.1.0)，并按该版本 README 配置部署。
 
-前往 [Releases](https://github.com/fl0w1nd/Lotus/releases) 页面，下载最新版本的 `dist.zip`：
+### 方式一：面板「前端管理」一键安装（推荐）
+
+哪吒面板 v2.5.0 起内置前端管理，可直接从 GitHub Release 安装和切换主题，无需挂载目录或单独托管静态文件，也无需重启面板。
+
+1. 以管理员身份进入后台 **设置 → 前端管理**，选择 **用户前端**
+2. 仓库地址填写：
+
+   ```text
+   https://github.com/fl0w1nd/Lotus
+   ```
+
+3. 读取发布版本，选择 **v1.2.0 或更新的版本**（更早版本的压缩包结构不符合要求，安装会失败）
+4. 点击 **安装**，完成后点击 **启用**
+
+升级时在同一页面安装新版本并启用即可；旧版本不会自动删除，切换后可在列表中手动删除。想换回官方主题时，在列表中启用内置的 `user-dist`。
+
+> **💡 提示**：安装内容保存在面板配置文件同目录的 `frontends/` 下。Docker 部署需要持久化并保证该目录可写（官方 compose 中挂载的 `./data:/dashboard/data` 已满足）。
+
+### 方式二：挂载 `user-dist` 目录
+
+适合面板无法访问 GitHub 的离线环境。面板在提供前端文件时优先读取本地目录，再回退到内嵌资源，把主题放到 `user-dist` 即可覆盖官方主题。
+
+前往 [Releases](https://github.com/fl0w1nd/Lotus/releases) 下载最新的 `dist.zip`，解压后得到 `dist/` 目录：
 
 ```bash
-# 示例：下载并解压到当前目录
 wget https://github.com/fl0w1nd/Lotus/releases/latest/download/dist.zip
 unzip dist.zip
-# 解压后得到 nezha-theme-lotus-dist/ 目录
 ```
 
-### 2. Docker 挂载部署（推荐）
-
-Nezha Dashboard 在服务前端文件时优先读取本地文件系统（`os.OpenRoot`），回退到二进制内嵌资源。因此只需将主题目录挂载到容器内的 `user-dist` 路径即可覆盖官方主题：
+**Docker：**
 
 ```yaml
 # docker-compose.yml
@@ -76,37 +94,32 @@ services:
     image: ghcr.io/nezhahq/nezha:latest
     volumes:
       - ./data:/dashboard/data
-      - ./nezha-theme-lotus-dist:/dashboard/user-dist:ro   # ← 挂载主题
+      - ./dist:/dashboard/user-dist:ro   # ← 挂载主题
     ports:
       - 8008:8008
 ```
-
-启动容器：
 
 ```bash
 docker compose up -d
 ```
 
-> **💡 提示**：更新主题时只需下载新版 `dist.zip` 解压覆盖 `nezha-theme-lotus-dist/` 目录，然后重启容器即可。
-
-### 3. 二进制部署挂载
-
-若使用一键脚本安装的独立二进制（非 Docker），同样利用本地文件优先机制——将主题放到 Dashboard 工作目录下的 `user-dist/`：
+**二进制（一键脚本安装，默认路径 `/opt/nezha/dashboard/`）：**
 
 ```bash
-# 默认安装路径为 /opt/nezha/dashboard/
-unzip dist.zip
-sudo cp -r nezha-theme-lotus-dist/. /opt/nezha/dashboard/user-dist
-
-# 重启服务
+sudo rm -rf /opt/nezha/dashboard/user-dist
+sudo cp -r dist /opt/nezha/dashboard/user-dist
 sudo systemctl restart nezha-dashboard
 ```
 
-### 4. ⚠️ 前置反向代理（必需）
+> **💡 提示**：更新时用新版 `dist/` 整体替换旧目录（不要只覆盖，旧的带 hash 资源文件会残留），然后重启面板。
 
-Nezha Dashboard 后端存在 [304 状态码覆写 bug](https://github.com/nezhahq/nezha/issues)：`GinCustomWriter` 将 HTTP `304 Not Modified` 强制覆写为 `200`，但 body 已被剥离，浏览器收到空响应后白屏。**必须在前置反代中剥离条件请求头，绕过此 bug。**
+> 使用方式二时，面板「设置」中的用户前端需要保持为内置的 `user-dist`。
 
-**Nginx（推荐）：**
+### 前置反向代理
+
+反向代理用于 HTTPS、Agent 的 gRPC 和前端的 WebSocket，与使用哪种安装方式无关。面板 v2.5.0 已修复静态资源 304 被改写为 200 的问题，**不再需要**剥离 `If-Modified-Since` / `If-None-Match` 请求头。
+
+**Nginx：**
 
 ```nginx
 server {
@@ -143,10 +156,6 @@ server {
     proxy_read_timeout 3600s;
     proxy_send_timeout 3600s;
     proxy_max_temp_file_size 0;
-
-    # 必备：剥离条件请求头，绕过 Nezha 后端的 304→200 bug
-    proxy_set_header If-Modified-Since "";
-    proxy_set_header If-None-Match "";
   }
 }
 ```
@@ -176,10 +185,6 @@ status.example.com {
         reverse_proxy 127.0.0.1:8008 {
             header_up Host {host}
             header_up nz-realip {remote_host}
-
-            # 必备：剥离条件请求头，绕过 Nezha 后端的 304→200 bug
-            header_up -If-Modified-Since
-            header_up -If-None-Match
         }
     }
 }
@@ -191,15 +196,14 @@ Cloudflare 代理开启时，`nz-realip` 可改为：
 header_up nz-realip {http.request.header.CF-Connecting-IP}
 ```
 
-Caddy 的条件请求头处理使用 `header_up`，作用于浏览器发往 Dashboard 的请求。
 Docker Compose 场景可将示例中的 `127.0.0.1:8008` 统一替换为 `nezha-dashboard:3001`。
 
-### 其他部署方式
+> 从旧版 README 升级过来的配置中如果还有剥离 `If-*` 请求头的两行，在面板 v2.5.0+ 上可以删除，保留也不影响使用。
 
 <details>
-<summary>📦 方式二：独立托管 + 反向代理</summary>
+<summary>📦 其他方式：独立托管 + 反向代理</summary>
 
-将 `dist/` 部署到任意静态服务（nginx / Caddy / CDN），将 `/api/v1/` 反代到面板并保留 WebSocket 升级头。本主题使用 Hash 路由，静态服务可直接返回入口文件与资源：
+将 `dist/` 部署到任意静态服务（nginx / Caddy / CDN），将 `/api/v1/` 反代到面板并保留 WebSocket 升级头。本主题使用 Hash 路由，静态服务直接返回入口文件与资源即可。建议对 `index.html` 设置 `Cache-Control: no-cache`，`assets/` 下的文件名带内容 hash，可以长期缓存：
 
 ```nginx
 server {
@@ -208,26 +212,23 @@ server {
 
   root /var/www/lotus-dist;
 
+  location = /index.html {
+    add_header Cache-Control "no-cache";
+  }
+
+  location /assets/ {
+    add_header Cache-Control "public, max-age=31536000, immutable";
+  }
+
   location /api/v1/ {
     proxy_pass http://dashboard:8008;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
     proxy_set_header Host $host;
-
-    # 必备：剥离条件请求头，绕过 Nezha 后端的 304→200 bug
-    proxy_set_header If-Modified-Since "";
-    proxy_set_header If-None-Match "";
   }
 }
 ```
-
-</details>
-
-<details>
-<summary>🐳 方式三：支持运行时主题加载的社区镜像</summary>
-
-部分社区维护的 Dashboard 镜像支持通过环境变量从 GitHub Release 拉取主题（`NZ_EXTRA_USER_THEME_REPOSITORY` / `NZ_EXTRA_USER_THEME_VERSION` 等）。本仓库 CI 在打 tag 时会自动构建并把 `dist.zip` 附加到 Release，可直接配合使用。
 
 </details>
 
