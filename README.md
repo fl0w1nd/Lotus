@@ -52,40 +52,44 @@
 
 ---
 
-## 🚀 快速部署
+## 🚀 部署
 
-> **版本要求**：Lotus v1.2.0 起需要哪吒面板 **v2.5.0+**。面板低于 v2.5.0 时请继续使用 [Lotus v1.1.0](https://github.com/fl0w1nd/Lotus/releases/tag/v1.1.0)，并按该版本 README 配置部署。
+> [!IMPORTANT]
+> Lotus v1.2.0 起需要哪吒面板 **v2.5.0+**。面板版本更低时请使用 [Lotus v1.1.0](https://github.com/fl0w1nd/Lotus/tree/v1.1.0#readme)，并按该版本的说明部署。
 
-### 方式一：面板「前端管理」一键安装（推荐）
+部署分两步：先在面板里安装主题，再配置反向代理。已经配好反代的话，只需要第一步。
 
-哪吒面板 v2.5.0 起内置前端管理，可直接从 GitHub Release 安装和切换主题，无需挂载目录或单独托管静态文件，也无需重启面板。
+### 第一步：安装主题
 
-1. 以管理员身份进入后台 **设置 → 前端管理**，选择 **用户前端**
-2. 仓库地址填写：
+在面板后台的「前端管理」里一键安装，不需要挂载目录，也不需要重启面板：
 
-   ```text
-   https://github.com/fl0w1nd/Lotus
-   ```
+1. 以管理员身份进入 **设置 → 前端管理**，选择 **用户前端**
+2. 仓库地址填写 `https://github.com/fl0w1nd/Lotus`，点击 **读取发布版本**
+3. 选择最新版本，点击 **安装**，完成后点击 **启用**
 
-3. 读取发布版本，选择 **v1.2.0 或更新的版本**（更早版本的压缩包结构不符合要求，安装会失败）
-4. 点击 **安装**，完成后点击 **启用**
+> [!TIP]
+> **升级**：在同一页面安装新版本并启用。旧版本不会自动删除，切换后可以在列表里手动删除。
+>
+> **换回官方主题**：在列表中启用内置的 `Official`（`user-dist`）。
 
-升级时在同一页面安装新版本并启用即可；旧版本不会自动删除，切换后可在列表中手动删除。想换回官方主题时，在列表中启用内置的 `user-dist`。
+> [!NOTE]
+> 安装的主题保存在面板配置文件同目录的 `frontends/` 下。Docker 部署需要持久化这个目录，官方 compose 挂载的 `./data:/dashboard/data` 已经包含它。
 
-> **💡 提示**：安装内容保存在面板配置文件同目录的 `frontends/` 下。Docker 部署需要持久化并保证该目录可写（官方 compose 中挂载的 `./data:/dashboard/data` 已满足）。
+<details>
+<summary>📦 离线环境：手动挂载 <code>user-dist</code></summary>
 
-### 方式二：挂载 `user-dist` 目录
+<br>
 
-适合面板无法访问 GitHub 的离线环境。面板在提供前端文件时优先读取本地目录，再回退到内嵌资源，把主题放到 `user-dist` 即可覆盖官方主题。
+面板无法访问 GitHub 时，可以手动下载主题并放到面板的 `user-dist` 目录。面板会优先读取这个目录，覆盖内嵌的官方主题。
 
-前往 [Releases](https://github.com/fl0w1nd/Lotus/releases) 下载最新的 `dist.zip`，解压后得到 `dist/` 目录：
+下载并解压，得到 `dist/` 目录：
 
 ```bash
 wget https://github.com/fl0w1nd/Lotus/releases/latest/download/dist.zip
 unzip dist.zip
 ```
 
-**Docker：**
+**Docker**：把 `dist/` 挂载到容器的 `/dashboard/user-dist`。
 
 ```yaml
 # docker-compose.yml
@@ -99,11 +103,7 @@ services:
       - 8008:8008
 ```
 
-```bash
-docker compose up -d
-```
-
-**二进制（一键脚本安装，默认路径 `/opt/nezha/dashboard/`）：**
+**二进制**（一键脚本安装，默认路径 `/opt/nezha/dashboard/`）：
 
 ```bash
 sudo rm -rf /opt/nezha/dashboard/user-dist
@@ -111,59 +111,84 @@ sudo cp -r dist /opt/nezha/dashboard/user-dist
 sudo systemctl restart nezha-dashboard
 ```
 
-> **💡 提示**：更新时用新版 `dist/` 整体替换旧目录（不要只覆盖，旧的带 hash 资源文件会残留），然后重启面板。
+**注意：**
 
-> 使用方式二时，面板「设置」中的用户前端需要保持为内置的 `user-dist`。
+- 「前端管理」中启用的用户前端必须是内置的 `Official`（`user-dist`），否则挂载的目录不会生效。
+- 更新时用新版 `dist/` **整体替换**旧目录，然后重启面板。只覆盖文件会残留旧版本的资源文件。
 
-### 前置反向代理
+</details>
 
-反向代理用于 HTTPS、Agent 的 gRPC 和前端的 WebSocket，与使用哪种安装方式无关。面板 v2.5.0 已修复静态资源 304 被改写为 200 的问题，**不再需要**剥离 `If-Modified-Since` / `If-None-Match` 请求头。
+### 第二步：配置反向代理
 
-**Nginx：**
+反向代理负责 HTTPS、Agent 的 gRPC 连接和页面的 WebSocket 实时数据。Lotus 对反代没有额外要求，与[官方文档](https://nezha.wiki/guide/q3.html)一致。
+
+下面是反代直接面向公网时的配置，把域名、证书路径换成自己的即可。
+
+<details open>
+<summary><b>Nginx</b></summary>
+
+<br>
 
 ```nginx
 server {
-  listen 443 ssl;
-  server_name status.example.com;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;   # Agent 的 gRPC 需要 HTTP/2；Nginx 1.25.1 以下改为 listen 443 ssl http2;
+    server_name status.example.com;
 
-  location ^~ /proto.NezhaService/ {
-    grpc_pass grpc://127.0.0.1:8008;
-    grpc_set_header Host $host;
-    grpc_set_header nz-realip $remote_addr;
-    grpc_read_timeout 600s;
-    grpc_send_timeout 600s;
-    grpc_socket_keepalive on;
-    client_max_body_size 10m;
-  }
+    ssl_certificate     /path/to/fullchain.pem;
+    ssl_certificate_key /path/to/privkey.pem;
 
-  location ~* ^/api/v1/ws/(server|terminal|file)(.*)$ {
-    proxy_pass http://127.0.0.1:8008;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header nz-realip $remote_addr;
-    proxy_set_header Origin https://$host;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_read_timeout 3600s;
-    proxy_send_timeout 3600s;
-  }
+    # Agent gRPC
+    location ^~ /proto.NezhaService/ {
+        grpc_pass grpc://127.0.0.1:8008;
+        grpc_set_header Host $host;
+        grpc_set_header nz-realip $remote_addr;
+        grpc_read_timeout 600s;
+        grpc_send_timeout 600s;
+        grpc_socket_keepalive on;
+        grpc_buffer_size 4m;
+        client_max_body_size 10m;
+    }
 
-  location / {
-    proxy_pass http://127.0.0.1:8008;
-    proxy_set_header Host $host;
-    proxy_set_header nz-realip $remote_addr;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_read_timeout 3600s;
-    proxy_send_timeout 3600s;
-    proxy_max_temp_file_size 0;
-  }
+    # WebSocket：实时数据、网页终端、文件管理
+    location ~* ^/api/v1/ws/(server|terminal|file)(.*)$ {
+        proxy_pass http://127.0.0.1:8008;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header nz-realip $remote_addr;
+        proxy_set_header Origin https://$host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # 页面与 API
+    location / {
+        proxy_pass http://127.0.0.1:8008;
+        proxy_set_header Host $host;
+        proxy_set_header nz-realip $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_max_temp_file_size 0;
+    }
 }
 ```
 
-**Caddy：**
+</details>
+
+<details>
+<summary><b>Caddy</b></summary>
+
+<br>
+
+Caddy 会自动申请证书，WebSocket 也会自动处理。
 
 ```caddyfile
 status.example.com {
+    # Agent gRPC
     @grpc path /proto.NezhaService/*
     handle @grpc {
         reverse_proxy h2c://127.0.0.1:8008 {
@@ -172,63 +197,76 @@ status.example.com {
         }
     }
 
-    @ws path_regexp ws ^/api/v1/ws/(server|terminal|file).*
-    handle @ws {
+    # 页面、API 与 WebSocket
+    handle {
         reverse_proxy 127.0.0.1:8008 {
             header_up Host {host}
             header_up Origin https://{host}
             header_up nz-realip {remote_host}
         }
     }
+}
+```
 
-    handle {
-        reverse_proxy 127.0.0.1:8008 {
-            header_up Host {host}
-            header_up nz-realip {remote_host}
-        }
+</details>
+
+> [!TIP]
+> **套了 CDN（如 Cloudflare）**：`nz-realip` 要改成 CDN 传来的真实 IP 请求头，否则面板记录的都是 CDN 节点的 IP。
+>
+> - Nginx：把 `$remote_addr` 换成 `$http_cf_connecting_ip`
+> - Caddy：把 `{remote_host}` 换成 `{http.request.header.CF-Connecting-IP}`
+>
+> **反代和面板在同一个 Docker Compose 里**：把 `127.0.0.1:8008` 换成面板的服务名和端口，例如 `dashboard:8008`。
+
+<details>
+<summary>🌐 进阶：静态文件交给自己的 Web 服务器或 CDN</summary>
+
+<br>
+
+想让静态资源走 CDN 时，可以把 `dist/` 部署到任意静态服务，只把 `/api/v1/` 反代到面板。Lotus 使用 Hash 路由，静态服务不需要做路由回退。
+
+```nginx
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name status.example.com;
+
+    root /var/www/lotus-dist;
+
+    # 入口文件每次都重新验证；assets/ 下的文件名带内容 hash，可以长期缓存
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    location /api/v1/ {
+        proxy_pass http://127.0.0.1:8008;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header nz-realip $remote_addr;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
     }
 }
 ```
 
-Cloudflare 代理开启时，`nz-realip` 可改为：
+**注意**：这只是前台页面的地址。管理后台和 Agent 的 gRPC 仍然需要按上面的方式反代面板本身。
 
-```caddyfile
-header_up nz-realip {http.request.header.CF-Connecting-IP}
-```
+</details>
 
-Docker Compose 场景可将示例中的 `127.0.0.1:8008` 统一替换为 `nezha-dashboard:3001`。
-
-> 从旧版 README 升级过来的配置中如果还有剥离 `If-*` 请求头的两行，在面板 v2.5.0+ 上可以删除，保留也不影响使用。
+### 从 v1.1.0 及更早版本升级
 
 <details>
-<summary>📦 其他方式：独立托管 + 反向代理</summary>
+<summary>旧版部署方式与 v1.2.0 的区别</summary>
 
-将 `dist/` 部署到任意静态服务（nginx / Caddy / CDN），将 `/api/v1/` 反代到面板并保留 WebSocket 升级头。本主题使用 Hash 路由，静态服务直接返回入口文件与资源即可。建议对 `index.html` 设置 `Cache-Control: no-cache`，`assets/` 下的文件名带内容 hash，可以长期缓存：
+<br>
 
-```nginx
-server {
-  listen 443 ssl;
-  server_name status.example.com;
-
-  root /var/www/lotus-dist;
-
-  location = /index.html {
-    add_header Cache-Control "no-cache";
-  }
-
-  location /assets/ {
-    add_header Cache-Control "public, max-age=31536000, immutable";
-  }
-
-  location /api/v1/ {
-    proxy_pass http://dashboard:8008;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_set_header Host $host;
-  }
-}
-```
+1. **面板升级到 v2.5.0+**，然后按[第一步](#第一步安装主题)改用「前端管理」安装。之后可以去掉原来对 `user-dist` 的挂载。
+2. **反代配置**：旧版要求剥离 `If-Modified-Since` / `If-None-Match` 请求头，用来绕过面板把 304 改写成 200 导致的白屏。面板 v2.5.0 已修复这个问题，这两行可以删除，保留也不影响使用。
+3. **发布包结构**：`dist.zip` 解压后的目录从 `nezha-theme-lotus-dist/` 改为 `dist/`。继续手动挂载的话，注意调整路径。
+4. **社区镜像**：旧 README 介绍的社区镜像方案（通过 `NZ_EXTRA_USER_THEME_*` 环境变量加载主题）已移除，请改用「前端管理」。
 
 </details>
 
