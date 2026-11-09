@@ -3,15 +3,6 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "mock": "node mock/server.mjs",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "gen:map": "node scripts/gen-world-dots.mjs",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write ."
-  },
   "dependencies": {
     "@fontsource/geist-mono": "^5.2.5",
     "@fontsource/geist-sans": "^5.2.5",

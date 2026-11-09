@@ -16,38 +16,18 @@ jobs:
         with:
           fetch-depth: 0 # git-cliff 需要完整提交历史
 
-      - uses: pnpm/action-setup@v4
+      # 按 mise.toml 安装固定版本的 Node 与 pnpm
+      - uses: jdx/mise-action@v5
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+      - run: mise run install
 
-      - run: pnpm install --frozen-lockfile
+      - run: mise run lint
 
-      - run: pnpm lint
-
-      - run: pnpm build
+      # package 任务会先构建,再打包 dist.zip 并校验哪吒面板
+      # 「前端管理」(v2.5.0+) 要求的结构(全部位于 dist/ 下,含 index.html)
+      - run: mise run package
         env:
           LOTUS_VERSION: ${{ github.ref_name }}
-
-      # 哪吒面板「前端管理」(v2.5.0+) 要求:附件名为 dist.zip,
-      # 所有条目位于 dist/ 下,且包含非空 dist/index.html
-      - name: Package dist
-        run: zip -r dist.zip dist
-
-      - name: Verify package layout
-        run: |
-          entries=$(zipinfo -1 dist.zip)
-          if echo "$entries" | grep -v '^dist/'; then
-            echo "::error::dist.zip 中存在 dist/ 以外的条目"
-            exit 1
-          fi
-          if ! echo "$entries" | grep -qx 'dist/index.html'; then
-            echo "::error::dist.zip 缺少 dist/index.html"
-            exit 1
-          fi
-          test -s dist/index.html
 
       # 按 conventional commits 自动分组生成本次 tag 的更新说明
       - name: Generate changelog

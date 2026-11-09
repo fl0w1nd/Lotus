@@ -253,26 +253,32 @@ server {
 
 ## 🛠 开发
 
+工具链（Node / pnpm 版本）和常用命令统一由 [mise](https://mise.jdx.dev) 管理，配置见 [`mise.toml`](mise.toml)。
+
 ```bash
-pnpm install
-pnpm mock   # 终端 1：启动本地 mock 哪吒 v2 后端（REST + WS，端口 8008）
-pnpm dev    # 终端 2：启动 Vite 开发服务器
+mise install       # 安装固定版本的 Node 与 pnpm
+mise run install   # 按 lockfile 安装依赖
+mise run mock      # 终端 1：启动本地 mock 哪吒 v2 后端（REST + WS，端口 8008）
+mise run dev       # 终端 2：启动 Vite 开发服务器
 ```
 
 本地 mock 默认管理员态，可直接测试网络监控 7 天 / 30 天；游客态用
-`MOCK_AUTH=guest pnpm mock`。
+`MOCK_AUTH=guest mise run mock`。
 
 对接真实面板调试（代理转发 API 与 WebSocket）：
 
 ```bash
-NEZHA_BACKEND=https://your-dashboard.example.com pnpm dev
+NEZHA_BACKEND=https://your-dashboard.example.com mise run dev
 ```
 
-构建：
+构建与打包：
 
 ```bash
-pnpm build   # 产物在 dist/
+mise run build     # 类型检查并构建，产物在 dist/
+mise run package   # 构建并打包 dist.zip，校验面板「前端管理」要求的结构
 ```
+
+页脚显示的主题版本在构建时注入：发版时 CI 传入 tag，本地构建取 `git describe` 的结果，也可以用 `LOTUS_VERSION=v1.2.0 mise run build` 手动指定。`mise tasks` 可查看全部任务。
 
 ---
 
@@ -280,7 +286,7 @@ pnpm build   # 产物在 dist/
 
 React 19 · TypeScript · Vite 8 · Tailwind CSS 4 · TanStack Query · Recharts · react-router · NumberFlow · simple-icons · Geist 字体
 
-> 世界地图点阵数据由 `pnpm gen:map` 在构建期生成（基于 dotted-map），运行时为纯 SVG，零依赖。
+> 世界地图点阵数据由 `mise run gen:map` 生成（基于 dotted-map），运行时为纯 SVG，零依赖。
 
 ## 📡 数据接口
 

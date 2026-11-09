@@ -1,0 +1,63 @@
+# 工具链与项目任务统一由 mise 管理
+#   mise install          安装下方固定版本的 Node 与 pnpm
+#   mise run install      按 lockfile 安装依赖
+#   mise tasks            查看全部任务
+
+[tools]
+node = "22.23.4"
+pnpm = "11.5.2"
+
+[env]
+# 让任务直接调用依赖里的 CLI(vite / tsc / biome)
+_.path = ["{{config_root}}/node_modules/.bin"]
+
+[tasks.install]
+description = "按 lockfile 安装依赖"
+run = "pnpm install --frozen-lockfile"
+
+[tasks.dev]
+description = "启动 Vite 开发服务器(NEZHA_BACKEND=<面板地址> 可对接真实面板)"
+run = "vite"
+
+[tasks.mock]
+description = "启动本地 mock 哪吒 v2 后端,端口 8008(MOCK_AUTH=guest 为游客态)"
+run = "node mock/server.mjs"
+
+[tasks.build]
+description = "类型检查并构建到 dist/(LOTUS_VERSION 可指定页脚显示的版本)"
+run = ["tsc -b", "vite build"]
+
+[tasks.preview]
+description = "本地预览 dist/ 构建产物"
+run = "vite preview"
+
+[tasks.lint]
+description = "Biome 检查"
+run = "biome check ."
+
+[tasks."lint:fix"]
+description = "Biome 检查并自动修复"
+run = "biome check --write ."
+
+[tasks."gen:map"]
+description = "重新生成世界地图点阵数据"
+run = "node scripts/gen-world-dots.mjs"
+
+[tasks.package]
+description = "构建并打包 dist.zip,校验哪吒面板「前端管理」要求的结构"
+depends = ["build"]
+run = '''
+set -eu
+rm -f dist.zip
+zip -qr dist.zip dist
+entries=$(zipinfo -1 dist.zip)
+if printf '%s\n' "$entries" | grep -v '^dist/'; then
+  echo "dist.zip 中存在 dist/ 以外的条目" >&2
+  exit 1
+fi
+if ! printf '%s\n' "$entries" | grep -qx 'dist/index.html' || [ ! -s dist/index.html ]; then
+  echo "dist.zip 缺少非空的 dist/index.html" >&2
+  exit 1
+fi
+echo "dist.zip 结构校验通过"
+'''

@@ -25,18 +25,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      # 按 mise.toml 安装固定版本的 Node 与 pnpm
+      - uses: jdx/mise-action@v5
+
+      - &pnpm-store
+        name: Get pnpm store path
+        id: pnpm-store
+        run: echo "dir=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+
+      - &pnpm-cache
+        uses: actions/cache@v4
         with:
-          version: 11
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+      - run: mise run install
 
-      - run: pnpm install --frozen-lockfile
-
-      - run: pnpm lint
+      - run: mise run lint
 
   build:
     name: Build
@@ -44,19 +50,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11
+      - uses: jdx/mise-action@v5
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
+      - *pnpm-store
 
-      - run: pnpm install --frozen-lockfile
+      - *pnpm-cache
+
+      - run: mise run install
 
       # tsc -b 做类型检查,vite build 做产物构建
-      - run: pnpm build
+      - run: mise run build
 
       - name: Upload dist artifact
         uses: actions/upload-artifact@v4

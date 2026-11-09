@@ -6,3 +6,4 @@ dist/
 .env
 .gemini/
 .claude/
+dist.zip
