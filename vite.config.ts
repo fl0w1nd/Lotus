@@ -30,17 +30,10 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       chunkSizeWarningLimit: 1200,
-      rollupOptions: {
-        output: {
-          // 固定文件名(不带 hash):nezha 后端 serve 静态文件不带
-          // Cache-Control,index.html 会被浏览器启发式缓存;主题更新后
-          // 旧 index.html 引用带旧 hash 的 JS 会 404 白屏。固定文件名让
-          // 新旧 index.html 永远指向存在的文件,更新靠 Last-Modified 协商
-          entryFileNames: "assets/[name].js",
-          chunkFileNames: "assets/[name].js",
-          assetFileNames: "assets/[name][extname]",
-        },
-      },
+      // 产物文件名使用默认的内容 hash:面板 v2.5.0+ 对 index.html 返回
+      // Cache-Control: no-store,每次都会拿到引用最新 hash 的入口;
+      // 挂载 user-dist 时资源没有 Cache-Control,带 hash 才能避免浏览器
+      // 启发式缓存把旧 JS 与新 index.html 混用
     },
   };
 });
