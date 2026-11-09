@@ -42,6 +42,9 @@ jobs:
       - name: Upload to release
         uses: softprops/action-gh-release@v3
         with:
+          # 面板「前端管理」把 Release 标题当作主题名称,并显示为
+          # 「名称 · 版本」;标题固定为 Lotus,版本号由 tag 提供
+          name: Lotus
           files: dist.zip
           body_path: CHANGELOG.md
           # 带连字符的 tag(如 v1.2.0-rc.1)标为预发布,
