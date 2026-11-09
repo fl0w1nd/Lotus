@@ -28,6 +28,8 @@ jobs:
       - run: pnpm lint
 
       - run: pnpm build
+        env:
+          LOTUS_VERSION: ${{ github.ref_name }}
 
       # 哪吒面板「前端管理」(v2.5.0+) 要求:附件名为 dist.zip,
       # 所有条目位于 dist/ 下,且包含非空 dist/index.html

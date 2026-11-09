@@ -24,6 +24,7 @@ export function Footer({ version }: { version?: string }) {
           >
             Lotus
           </a>
+          <span className="font-mono"> {__LOTUS_VERSION__}</span>
         </p>
       </div>
     </footer>
