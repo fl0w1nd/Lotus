@@ -12,7 +12,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # git-cliff 需要完整提交历史
 
@@ -40,7 +40,7 @@ jobs:
           OUTPUT: CHANGELOG.md
 
       - name: Upload to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist.zip
           body_path: CHANGELOG.md
