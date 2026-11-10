@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Segmented } from "@/components/Segmented";
 import { fetchServerMonitor } from "@/lib/api";
 import { useIsLogin } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
@@ -366,6 +367,7 @@ export function PingChart({ serverId }: { serverId: number }) {
   const chartWrapRef = useRef<HTMLDivElement | null>(null);
   // 默认全选，toggle 选中/取消
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [hoveredMonitor, setHoveredMonitor] = useState<string | null>(null);
   const [period, setPeriod] = useState<MonitorPeriod>("1d");
   const [isPeakEnabled, setIsPeakEnabled] = useState(false);
   const [chartWidth, setChartWidth] = useState(0);
@@ -565,40 +567,43 @@ export function PingChart({ serverId }: { serverId: number }) {
   return (
     <div className="card p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-xs font-semibold tracking-tight">{t("pingChart")}</h3>
-          <div className="flex items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5">
-            {periods.map((p) => {
+          <Segmented
+            label={t("timeRange")}
+            size="sm"
+            value={period}
+            onChange={setPeriod}
+            itemClassName="font-mono"
+            options={periods.map((p) => {
               const locked = !isLogin && p.key !== "1d";
-              return (
-                <button
-                  key={p.key}
-                  type="button"
-                  disabled={locked}
-                  title={locked ? t("loginToView") : undefined}
-                  onClick={() => setPeriod(p.key)}
-                  className={cn(
-                    "rounded-md px-2 py-1 font-mono text-[10.5px] font-medium transition-all",
-                    period === p.key
-                      ? "bg-surface-2 text-fg shadow-sm"
-                      : "text-muted hover:text-fg-2",
-                    locked && "cursor-not-allowed text-faint opacity-45 hover:text-faint",
-                  )}
-                >
-                  {p.label}
-                </button>
-              );
+              return {
+                value: p.key,
+                label: p.label,
+                disabled: locked,
+                title: locked ? t("loginToView") : undefined,
+              };
             })}
-          </div>
-          <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-line bg-surface px-2 py-1 text-[10.5px] font-medium text-muted transition-colors hover:text-fg-2">
-            <input
-              type="checkbox"
-              checked={isPeakEnabled}
-              onChange={(e) => setIsPeakEnabled(e.currentTarget.checked)}
-              className="size-3 accent-[var(--lt-accent)]"
+          />
+          <button
+            type="button"
+            aria-pressed={isPeakEnabled}
+            onClick={() => setIsPeakEnabled((v) => !v)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10.5px] font-medium transition-all",
+              isPeakEnabled
+                ? "border-accent/35 bg-accent/10 text-accent shadow-2xs"
+                : "border-line bg-surface-inset text-muted hover:border-line-strong hover:text-fg-2",
+            )}
+          >
+            <span
+              className={cn(
+                "size-1.5 rounded-full transition-colors",
+                isPeakEnabled ? "bg-accent" : "bg-faint/50",
+              )}
             />
             {t("peakCut")}
-          </label>
+          </button>
         </div>
         <div className="flex flex-wrap items-center gap-1">
           {monitorsWithLoss.map((m) => {
@@ -610,12 +615,14 @@ export function PingChart({ serverId }: { serverId: number }) {
                 key={m.monitor_id}
                 type="button"
                 onClick={() => handleClick(m.monitor_name)}
+                onMouseEnter={() => isVisible && setHoveredMonitor(m.monitor_name)}
+                onMouseLeave={() => setHoveredMonitor(null)}
                 title={`${t("packetLoss")} ${loss.toFixed(1)}%`}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-md px-2 py-1 text-[10.5px] font-medium transition-all",
+                  "flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[10.5px] font-medium transition-all",
                   isVisible
-                    ? "bg-surface-2 text-fg ring-1 ring-accent/30"
-                    : "text-faint opacity-50 hover:opacity-80",
+                    ? "border-line bg-surface-inset text-fg shadow-2xs hover:border-line-strong"
+                    : "border-transparent text-faint opacity-45 hover:opacity-80",
                 )}
               >
                 <span
@@ -683,35 +690,43 @@ export function PingChart({ serverId }: { serverId: number }) {
                 />
               }
             />
-            {visibleMonitors.map((m) => (
-              <Area
-                key={`loss-${m.monitor_id}`}
-                yAxisId="loss"
-                type="monotone"
-                dataKey={`${m.monitor_name}_loss`}
-                stroke="none"
-                fill={SERIES_COLORS[m.index % SERIES_COLORS.length]}
-                fillOpacity={0.2}
-                isAnimationActive={false}
-                dot={false}
-                connectNulls
-                name={`${m.monitor_name} ${t("packetLoss")}`}
-              />
-            ))}
-            {visibleMonitors.map((m) => (
-              <Line
-                key={m.monitor_id}
-                yAxisId="delay"
-                type="monotone"
-                dataKey={m.monitor_name}
-                name={m.monitor_name}
-                stroke={SERIES_COLORS[m.index % SERIES_COLORS.length]}
-                strokeWidth={1.4}
-                dot={false}
-                connectNulls
-                isAnimationActive={false}
-              />
-            ))}
+            {visibleMonitors.map((m) => {
+              const dimmed = hoveredMonitor !== null && hoveredMonitor !== m.monitor_name;
+              return (
+                <Area
+                  key={`loss-${m.monitor_id}`}
+                  yAxisId="loss"
+                  type="monotone"
+                  dataKey={`${m.monitor_name}_loss`}
+                  stroke="none"
+                  fill={SERIES_COLORS[m.index % SERIES_COLORS.length]}
+                  fillOpacity={dimmed ? 0.05 : 0.2}
+                  isAnimationActive={false}
+                  dot={false}
+                  connectNulls
+                  name={`${m.monitor_name} ${t("packetLoss")}`}
+                />
+              );
+            })}
+            {visibleMonitors.map((m) => {
+              const highlighted = hoveredMonitor === m.monitor_name;
+              const dimmed = hoveredMonitor !== null && !highlighted;
+              return (
+                <Line
+                  key={m.monitor_id}
+                  yAxisId="delay"
+                  type="monotone"
+                  dataKey={m.monitor_name}
+                  name={m.monitor_name}
+                  stroke={SERIES_COLORS[m.index % SERIES_COLORS.length]}
+                  strokeWidth={highlighted ? 2.2 : 1.45}
+                  strokeOpacity={dimmed ? 0.22 : 1}
+                  dot={false}
+                  connectNulls
+                  isAnimationActive={false}
+                />
+              );
+            })}
           </ComposedChart>
         </ResponsiveContainer>
       </div>

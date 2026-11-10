@@ -47,24 +47,29 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
   // 刻度在显示单位 (KB/MB/GB) 数值上取 nice number, 轴宽由实际标签精确预算
   const speedSc = useMemo(() => speedScale(maxSpeed), [maxSpeed]);
   const speedYWidth = axisWidthFor(speedSc.ticks.map(speedSc.format));
+  const latest = data.at(-1);
 
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
       {/* CPU / 内存 */}
       <div className="card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-xs font-semibold tracking-tight flex items-baseline gap-1">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-baseline gap-1 text-xs font-semibold tracking-tight">
             <span>
               {t("cpu")} / {t("memory")}
             </span>
-            <span className="text-[10px] font-normal text-faint normal-case">(%)</span>
+            <span className="text-[10px] font-normal normal-case text-faint">(%)</span>
           </h3>
-          <div className="flex items-center gap-3 text-[10px] text-muted">
-            <span className="flex items-center gap-1">
-              <span className="h-px w-3 bg-c-cpu" /> {t("cpu")}
+          <div className="flex items-center gap-1.5 text-[10.5px]">
+            <span className="badge-chip inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-muted">
+              <span className="size-1.5 rounded-full bg-c-cpu" />
+              <span>{t("cpu")}</span>
+              {latest && <span className="tnum font-mono font-medium text-fg">{latest.cpu}%</span>}
             </span>
-            <span className="flex items-center gap-1">
-              <span className="h-px w-3 bg-c-mem" /> {t("memory")}
+            <span className="badge-chip inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-muted">
+              <span className="size-1.5 rounded-full bg-c-mem" />
+              <span>{t("memory")}</span>
+              {latest && <span className="tnum font-mono font-medium text-fg">{latest.mem}%</span>}
             </span>
           </div>
         </div>
@@ -72,11 +77,11 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
           <AreaChart data={data} margin={{ top: 10, right: 0, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="g-cpu" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-c-cpu)" stopOpacity={0.25} />
+                <stop offset="0%" stopColor="var(--color-c-cpu)" stopOpacity={0.28} />
                 <stop offset="100%" stopColor="var(--color-c-cpu)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="g-mem" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-c-mem)" stopOpacity={0.25} />
+                <stop offset="0%" stopColor="var(--color-c-mem)" stopOpacity={0.28} />
                 <stop offset="100%" stopColor="var(--color-c-mem)" stopOpacity={0} />
               </linearGradient>
             </defs>
@@ -102,7 +107,7 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
               dataKey="cpu"
               name={t("cpu")}
               stroke="var(--color-c-cpu)"
-              strokeWidth={1.5}
+              strokeWidth={1.6}
               fill="url(#g-cpu)"
               isAnimationActive={false}
               dot={false}
@@ -112,7 +117,7 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
               dataKey="mem"
               name={t("memory")}
               stroke="var(--color-c-mem)"
-              strokeWidth={1.5}
+              strokeWidth={1.6}
               fill="url(#g-mem)"
               isAnimationActive={false}
               dot={false}
@@ -123,17 +128,27 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
 
       {/* 网络 */}
       <div className="card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-xs font-semibold tracking-tight flex items-baseline gap-1">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-baseline gap-1 text-xs font-semibold tracking-tight">
             <span>{t("netSpeed")}</span>
-            <span className="text-[10px] font-normal text-faint normal-case">({speedSc.unit})</span>
+            <span className="text-[10px] font-normal normal-case text-faint">({speedSc.unit})</span>
           </h3>
-          <div className="flex items-center gap-3 text-[10px] text-muted">
-            <span className="flex items-center gap-1">
-              <span className="h-px w-3 bg-c-out" /> {t("upload")}
+          <div className="flex items-center gap-1.5 text-[10.5px]">
+            <span className="badge-chip inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-muted">
+              <span className="size-1.5 rounded-full bg-c-out" />
+              <span>{t("upload")}</span>
+              {latest && (
+                <span className="tnum font-mono font-medium text-fg">{formatSpeed(latest.up)}</span>
+              )}
             </span>
-            <span className="flex items-center gap-1">
-              <span className="h-px w-3 bg-c-in" /> {t("download")}
+            <span className="badge-chip inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-muted">
+              <span className="size-1.5 rounded-full bg-c-in" />
+              <span>{t("download")}</span>
+              {latest && (
+                <span className="tnum font-mono font-medium text-fg">
+                  {formatSpeed(latest.down)}
+                </span>
+              )}
             </span>
           </div>
         </div>
@@ -141,11 +156,11 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
           <AreaChart data={data} margin={{ top: 10, right: 0, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="g-up" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-c-out)" stopOpacity={0.25} />
+                <stop offset="0%" stopColor="var(--color-c-out)" stopOpacity={0.28} />
                 <stop offset="100%" stopColor="var(--color-c-out)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="g-down" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--color-c-in)" stopOpacity={0.25} />
+                <stop offset="0%" stopColor="var(--color-c-in)" stopOpacity={0.28} />
                 <stop offset="100%" stopColor="var(--color-c-in)" stopOpacity={0} />
               </linearGradient>
             </defs>
@@ -171,7 +186,7 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
               dataKey="up"
               name={t("upload")}
               stroke="var(--color-c-out)"
-              strokeWidth={1.5}
+              strokeWidth={1.6}
               fill="url(#g-up)"
               isAnimationActive={false}
               dot={false}
@@ -181,7 +196,7 @@ export function RealtimeCharts({ serverId }: { serverId: number }) {
               dataKey="down"
               name={t("download")}
               stroke="var(--color-c-in)"
-              strokeWidth={1.5}
+              strokeWidth={1.6}
               fill="url(#g-down)"
               isAnimationActive={false}
               dot={false}

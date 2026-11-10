@@ -14,6 +14,7 @@
   --color-bg: var(--lt-bg);
   --color-surface: var(--lt-surface);
   --color-surface-2: var(--lt-surface-2);
+  --color-surface-inset: var(--lt-surface-inset);
   --color-line: var(--lt-line);
   --color-line-strong: var(--lt-line-strong);
   --color-fg: var(--lt-fg);
@@ -21,6 +22,8 @@
   --color-muted: var(--lt-muted);
   --color-faint: var(--lt-faint);
   --color-accent: var(--lt-accent);
+  /* 指标条正常态的中性色:颜色只留给告警/危险 */
+  --color-meter: var(--lt-meter);
 
   --color-up: oklch(0.72 0.17 162);
   --color-down: oklch(0.64 0.21 25);
@@ -44,6 +47,7 @@
   --lt-bg: oklch(0.985 0.002 105);
   --lt-surface: oklch(1 0 0);
   --lt-surface-2: oklch(0.972 0.002 105);
+  --lt-surface-inset: oklch(0.976 0.002 105);
   --lt-line: oklch(0 0 0 / 7%);
   --lt-line-strong: oklch(0 0 0 / 13%);
   --lt-fg: oklch(0.205 0.004 285);
@@ -52,6 +56,7 @@
   --lt-faint: oklch(0.62 0.006 285);
   /* 青莲紫:与 up/warn/down 语义色明确区隔的冷色品牌色 */
   --lt-accent: oklch(0.54 0.16 295);
+  --lt-meter: oklch(0.64 0.012 285);
   color-scheme: light;
 }
 
@@ -59,6 +64,7 @@
   --lt-bg: oklch(0.156 0.004 285);
   --lt-surface: oklch(0.193 0.004 285);
   --lt-surface-2: oklch(0.225 0.005 285);
+  --lt-surface-inset: oklch(0.172 0.004 285);
   --lt-line: oklch(1 0 0 / 8%);
   --lt-line-strong: oklch(1 0 0 / 15%);
   --lt-fg: oklch(0.965 0.002 285);
@@ -66,6 +72,7 @@
   --lt-muted: oklch(0.67 0.005 285);
   --lt-faint: oklch(0.56 0.005 285);
   --lt-accent: oklch(0.71 0.13 295);
+  --lt-meter: oklch(0.62 0.008 285);
   color-scheme: dark;
 }
 
@@ -109,6 +116,29 @@
 
 @media (prefers-reduced-motion: reduce) {
   .fade-up {
+    animation: none;
+  }
+}
+
+/* 浮层(菜单)出现:短促淡入 + 轻微下落,比卡片入场更快 */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pop-in {
+  transform-origin: top right;
+  animation: pop-in 0.14s cubic-bezier(0.21, 0.47, 0.32, 0.98) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pop-in {
     animation: none;
   }
 }
@@ -199,73 +229,110 @@ body {
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent 420px);
 }
 
-/* 玻璃卡片 */
+/* 主卡片表面:顶沿高光 + 双层定型阴影 */
 .card {
   background: linear-gradient(
-    to bottom,
-    color-mix(in oklab, var(--lt-surface) 92%, white 0%),
-    var(--lt-surface)
+    180deg,
+    color-mix(in oklab, var(--lt-surface) 97%, white 3%) 0%,
+    var(--lt-surface) 100%
   );
   border: 1px solid var(--lt-line);
   border-radius: var(--radius-card);
   box-shadow:
-    0 1px 2px oklch(0 0 0 / 4%),
-    inset 0 1px 0 color-mix(in oklab, white 4%, transparent);
+    0 1px 2px oklch(0 0 0 / 4.5%),
+    0 6px 16px -6px oklch(0 0 0 / 5%),
+    inset 0 1px 0 oklch(1 0 0 / 80%);
   transition:
     border-color 0.2s ease,
-    transform 0.2s ease,
+    background-color 0.2s ease,
+    transform 0.2s cubic-bezier(0.21, 0.47, 0.32, 0.98),
     box-shadow 0.25s ease;
 }
 
 .dark .card {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--lt-surface) 95%, white 5%) 0%,
+    var(--lt-surface) 100%
+  );
   box-shadow:
-    0 1px 2px oklch(0 0 0 / 20%),
-    inset 0 1px 0 oklch(1 0 0 / 4%);
+    0 2px 4px oklch(0 0 0 / 32%),
+    0 10px 24px -8px oklch(0 0 0 / 45%),
+    inset 0 1px 0 oklch(1 0 0 / 7%);
 }
 
 .card-hover:hover {
   border-color: var(--lt-line-strong);
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow:
-    0 12px 32px -10px oklch(0 0 0 / 14%),
-    inset 0 1px 0 color-mix(in oklab, white 5%, transparent);
+    0 4px 10px -2px oklch(0 0 0 / 7%),
+    0 14px 28px -10px oklch(0 0 0 / 11%),
+    inset 0 1px 0 oklch(1 0 0);
 }
 
 .dark .card-hover:hover {
+  border-color: color-mix(in oklab, var(--lt-accent) 28%, var(--lt-line-strong));
   box-shadow:
-    0 12px 36px -10px oklch(0 0 0 / 55%),
-    inset 0 1px 0 oklch(1 0 0 / 6%);
+    0 6px 14px -4px oklch(0 0 0 / 50%),
+    0 18px 36px -10px oklch(0 0 0 / 65%),
+    inset 0 1px 0 oklch(1 0 0 / 11%);
 }
 
-/* 分段质感进度条:用 mask 把整条切成等宽段,gap 透出卡片底色 */
+/* 精致微铭牌(用于套餐标签、硬件参数芯片) */
+.badge-chip {
+  background: var(--lt-surface-inset);
+  border: 1px solid var(--lt-line);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 45%);
+}
+
+.dark .badge-chip {
+  background: color-mix(in oklab, var(--lt-surface-2) 70%, transparent);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 5%);
+}
+
+/* 分段进度条:按 --seg-n 把整条等分,段数固定、首尾贴边;
+   填充宽度由组件按整段吸附,不会出现半截段 */
 .seg-bar {
-  --seg-w: 9px;
+  --seg-n: 28;
   --seg-gap: 3px;
   position: relative;
   height: 7px;
   width: 100%;
-  border-radius: 4px;
   background: color-mix(in oklab, var(--lt-fg) 9%, transparent);
-  -webkit-mask-image: repeating-linear-gradient(
+  -webkit-mask-image: linear-gradient(
     to right,
-    #000 0 var(--seg-w),
-    transparent var(--seg-w) calc(var(--seg-w) + var(--seg-gap))
+    #000 calc(100% - var(--seg-gap)),
+    transparent calc(100% - var(--seg-gap))
   );
-  mask-image: repeating-linear-gradient(
+  mask-image: linear-gradient(
     to right,
-    #000 0 var(--seg-w),
-    transparent var(--seg-w) calc(var(--seg-w) + var(--seg-gap))
+    #000 calc(100% - var(--seg-gap)),
+    transparent calc(100% - var(--seg-gap))
   );
+  -webkit-mask-size: calc((100% + var(--seg-gap)) / var(--seg-n)) 100%;
+  mask-size: calc((100% + var(--seg-gap)) / var(--seg-n)) 100%;
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
   overflow: hidden;
 }
 
 .seg-bar > span {
   display: block;
   height: 100%;
-  border-radius: inherit;
+  width: calc((100% + var(--seg-gap)) * var(--seg-on) / var(--seg-n));
   transition:
-    width 0.7s cubic-bezier(0.21, 0.47, 0.32, 0.98),
+    width 0.5s cubic-bezier(0.21, 0.47, 0.32, 0.98),
     background 0.4s ease;
+}
+
+/* 小标签:英文大写加字距;中文不拉字距(否则字会散开) */
+.label-caps {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+:lang(zh) .label-caps {
+  letter-spacing: 0;
 }
 
 /* 网络指示灯:在线有流量时呼吸,空闲/离线静止 */

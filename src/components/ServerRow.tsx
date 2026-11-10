@@ -27,6 +27,7 @@ import {
 import type { NezhaServer, ServerCycleInfo } from "@/types/nezha";
 import { Flag } from "./Flag";
 import { OsIcon } from "./OsIcon";
+import { METER_TONE, SegmentedBar, usageFill } from "./UsageBar";
 
 interface ServerRowProps {
   server: NezhaServer;
@@ -48,18 +49,13 @@ export const ServerRow = memo(function ServerRow({
 
   const note = useMemo(() => parsePublicNote(server.public_note), [server.public_note]);
   const daysLeft = billingDaysLeft(note?.billingDataMod);
+  const routeTag = note?.planDataMod?.networkRoute;
   const expiry = formatExpiryParts(daysLeft, lang);
   const uptime = formatUptimeParts(server.state.uptime, lang);
 
   const cyclePct = cycle && cycle.max > 0 ? Math.min((cycle.used / cycle.max) * 100, 100) : null;
   const cycleColor =
-    cyclePct === null
-      ? "var(--color-muted)"
-      : cyclePct >= 90
-        ? "var(--color-down)"
-        : cyclePct >= 75
-          ? "var(--color-warn)"
-          : "var(--color-muted)";
+    cyclePct === null ? "var(--color-muted)" : usageFill(cyclePct, "var(--color-muted)");
   const cycleTitle = cycle
     ? `${t("cycleTransfer")} · ${cycle.cycleName} · ${formatBytes(cycle.used)} / ${formatBytes(cycle.max)} · ${t("nextReset")} ${new Date(cycle.to).toLocaleDateString()}`
     : undefined;
@@ -86,24 +82,24 @@ export const ServerRow = memo(function ServerRow({
     >
       {/* 身份:国旗 + 状态点 + 名称 + 系统 (col-span-4) */}
       <div className="flex min-w-0 items-center gap-3 md:col-span-4">
-        <Flag code={server.country_code} className="shrink-0 text-base" />
+        <Flag code={server.country_code} className="shrink-0 text-[15px]" />
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-1.5">
-            <span
-              className={cn(
-                "size-1.5 shrink-0 rounded-full",
-                online ? "bg-up animate-pulse-soft" : "bg-down",
-              )}
-            />
+            <span className={cn("size-1.5 shrink-0 rounded-full", online ? "bg-up" : "bg-down")} />
             <h3 className="min-w-0 truncate text-[13.5px] font-semibold tracking-tight text-fg transition-colors group-hover:text-accent">
               {server.name}
             </h3>
+            {routeTag && (
+              <span className="shrink-0 rounded-[4px] border border-accent/25 bg-accent/10 px-1.5 py-0.5 font-mono text-[9.5px] font-medium leading-none text-accent">
+                {routeTag}
+              </span>
+            )}
           </div>
-          <div className="mt-0.5 flex items-center gap-1.5 font-mono text-[10px] text-faint">
+          <div className="mt-0.5 flex items-center gap-1.5 font-mono text-[10px] text-muted">
             <OsIcon platform={server.host.platform} className="size-2.5 shrink-0 opacity-85" />
             <span className="truncate">
               {platformName(server.host.platform)}
-              {server.host.arch ? ` · ${server.host.arch}` : ""}
+              {server.host.arch ? <span className="text-faint"> · {server.host.arch}</span> : ""}
             </span>
           </div>
         </div>
@@ -111,26 +107,20 @@ export const ServerRow = memo(function ServerRow({
 
       {/* 指标:CPU / 内存 / 磁盘 (col-span-3) */}
       <div className="dim-offline flex items-center gap-3 md:col-span-3">
+        <MiniMetric icon={<Cpu size={10.5} strokeWidth={2.2} />} percent={server.state.cpu} />
         <MiniMetric
-          icon={<Cpu size={11} strokeWidth={2} />}
-          percent={server.state.cpu}
-          tone="var(--color-c-cpu)"
-        />
-        <MiniMetric
-          icon={<MemoryStick size={11} strokeWidth={2} />}
+          icon={<MemoryStick size={10.5} strokeWidth={2.2} />}
           percent={memPercent(server)}
-          tone="var(--color-c-mem)"
         />
         <MiniMetric
-          icon={<HardDrive size={11} strokeWidth={2} />}
+          icon={<HardDrive size={10.5} strokeWidth={2.2} />}
           percent={diskPercent(server)}
-          tone="var(--color-c-disk)"
         />
       </div>
 
       {/* 网络:速率 + 实时指示灯 (col-span-3) */}
-      <div className="dim-offline flex items-center justify-between gap-2 md:col-span-3">
-        <div className="tnum flex items-center gap-3 font-mono text-[11px] text-fg-2">
+      <div className="dim-offline flex items-center justify-between gap-3 md:col-span-3">
+        <div className="tnum flex items-center gap-2.5 font-mono text-[11px] text-fg-2">
           <span className="inline-flex items-center gap-1">
             <ArrowUp size={11} strokeWidth={2.4} className="text-c-out" />
             {formatSpeed(upSpeed)}
@@ -140,10 +130,10 @@ export const ServerRow = memo(function ServerRow({
             {formatSpeed(downSpeed)}
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2.5">
           {cyclePct !== null && (
             <span
-              className="tnum hidden items-center gap-1 font-mono text-[10px] font-medium xl:inline-flex"
+              className="tnum hidden items-center gap-1 font-mono text-[9.5px] font-medium xl:inline-flex"
               style={{ color: cycleColor }}
               title={cycleTitle}
             >
@@ -170,31 +160,31 @@ export const ServerRow = memo(function ServerRow({
           value={online ? uptime.value : "—"}
           unit={online ? uptime.unit : ""}
         />
+        <span className="h-3.5 w-px bg-line" aria-hidden />
         <RowStat
           icon={<Calendar size={11} strokeWidth={2} />}
           value={expiry.value}
           unit={expiry.unit}
-          color={expireHeatColor(daysLeft)}
+          color={daysLeft != null && daysLeft <= 30 ? expireHeatColor(daysLeft) : undefined}
         />
       </div>
     </Link>
   );
 });
 
-function MiniMetric({ icon, percent, tone }: { icon: ReactNode; percent: number; tone: string }) {
+function MiniMetric({ icon, percent }: { icon: ReactNode; percent: number }) {
   const p = Math.min(Math.max(percent, 0), 100);
-  const fill = p >= 90 ? "var(--color-down)" : p >= 75 ? "var(--color-warn)" : tone;
+  const fill = usageFill(p);
+  const alert = fill !== METER_TONE;
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1">
       <div className="flex items-center justify-between gap-1">
-        <span className="shrink-0" style={{ color: tone }}>
+        <span className="shrink-0 text-muted" style={alert ? { color: fill } : undefined}>
           {icon}
         </span>
-        <span className="tnum font-mono text-[10px] font-medium text-fg-2">{p.toFixed(0)}%</span>
+        <span className="tnum font-mono text-[10.5px] font-semibold text-fg">{p.toFixed(0)}%</span>
       </div>
-      <div className="seg-bar" aria-hidden>
-        <span style={{ width: `${p}%`, background: fill }} />
-      </div>
+      <SegmentedBar percent={p} fill={fill} segments={12} size="sm" />
     </div>
   );
 }
@@ -214,11 +204,11 @@ function RowStat({
     <span className="inline-flex items-baseline gap-1">
       <span className="self-center text-faint">{icon}</span>
       <span
-        className="tnum font-mono text-[11px] font-semibold leading-none"
+        className="tnum font-mono text-[11.5px] font-semibold leading-none"
         style={{ color: color ?? "var(--color-fg-2)" }}
       >
         {value}
-        {unit && <span className="ml-0.5 text-[9px] font-normal text-faint">{unit}</span>}
+        {unit && <span className="ml-0.5 text-[9.5px] font-normal text-muted">{unit}</span>}
       </span>
     </span>
   );

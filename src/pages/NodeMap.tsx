@@ -1,9 +1,19 @@
+import { ArrowDown, ArrowUp, Cpu, Globe, MemoryStick, Server } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import worldDots from "@/assets/world-dots.json";
 import { Flag } from "@/components/Flag";
 import { OsIcon } from "@/components/OsIcon";
+import { SegmentedBar } from "@/components/UsageBar";
 import { useI18n } from "@/lib/i18n";
-import { cn, formatBytes, isServerOnline, memPercent } from "@/lib/utils";
+import {
+  cn,
+  formatBytes,
+  formatSpeed,
+  isServerOnline,
+  memPercent,
+  platformName,
+} from "@/lib/utils";
 import { useNezhaWS } from "@/lib/ws";
 import type { NezhaServer } from "@/types/nezha";
 
@@ -22,10 +32,10 @@ export default function NodeMapPage() {
   const { snapshot } = useNezhaWS();
   const { t, lang } = useI18n();
 
-  // 鼠标悬停的国家/地区
+  // 鼠标悬停的国家/地区(仅用于地图顶栏实时预览，不触发下方列表卸载跳动)
   const [hoveredCountry, setHoveredCountry] = useState<CountryAgg | null>(null);
 
-  // 当前手动高亮的国家（点击左侧列表行时）
+  // 当前选中的国家（未手动选择时默认选中节点最多的首个地区）
   const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>(null);
 
   // 陆地底图点阵 path 合并
@@ -106,45 +116,55 @@ export default function NodeMapPage() {
     );
   }
 
-  // 被聚焦高亮的国家 (鼠标悬停优先，其次为左侧点击选择)
-  const activeCountry = hoveredCountry || countries.find((c) => c.code === selectedCountryCode);
+  const effectiveCode = selectedCountryCode ?? countries[0]?.code ?? null;
+  const activeCountry = countries.find((c) => c.code === effectiveCode) ?? countries[0] ?? null;
+  const previewCountry = hoveredCountry ?? activeCountry;
 
   return (
-    <div className="flex flex-col gap-5 pt-5 lg:grid lg:grid-cols-12">
-      {/* 左侧 HUD 统计大盘 (占 4 列) */}
+    <div className="flex flex-col gap-4 pt-5 lg:grid lg:grid-cols-12">
+      {/* 左侧态势面板 (占 4 列) */}
       <div className="flex flex-col gap-4 lg:col-span-4">
         {/* 核心指标看板 */}
-        <div className="card p-5 flex flex-col gap-5 bg-gradient-to-b from-surface to-surface-2">
-          <div>
-            <h2 className="text-sm font-semibold tracking-tight text-fg-2 uppercase">
-              HUD Dashboard
-            </h2>
-            <p className="text-[11px] text-faint font-mono">GLOBAL AGENTS SNAPSHOT</p>
+        <div className="card flex flex-col gap-4 p-4 sm:p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold tracking-tight text-fg">
+                {lang === "zh-CN" ? "全球节点态势" : "Global Fleet Posture"}
+              </h2>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-faint">
+                {lang === "zh-CN" ? "实时地理分布与负载均值" : "Live Regional Telemetry"}
+              </p>
+            </div>
+            <span className="badge-chip rounded-md px-2 py-0.5 font-mono text-[10px] font-medium text-muted">
+              {stats.totalRegions} {t("regions")}
+            </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col border-l border-line pl-3">
-              <span className="text-[10px] text-muted tracking-wider uppercase font-medium">
-                {t("online")} / {lang === "zh-CN" ? "总数" : "Total"}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="card-well flex flex-col gap-1 px-3 py-2.5">
+              <span className="flex items-center gap-1.5 text-[10.5px] font-medium text-muted">
+                <Server size={11} className="text-up" />
+                {t("online")}
               </span>
-              <span className="text-xl font-semibold tracking-tight text-fg">
-                {stats.onlineServers}{" "}
-                <span className="text-xs text-faint">/ {stats.totalServers}</span>
+              <span className="tnum font-mono text-xl font-semibold tracking-tight text-fg">
+                <span className="text-up">{stats.onlineServers}</span>{" "}
+                <span className="text-xs font-normal text-faint">/ {stats.totalServers}</span>
               </span>
             </div>
-            <div className="flex flex-col border-l border-line pl-3">
-              <span className="text-[10px] text-muted tracking-wider uppercase font-medium">
+            <div className="card-well flex flex-col gap-1 px-3 py-2.5">
+              <span className="flex items-center gap-1.5 text-[10.5px] font-medium text-muted">
+                <Globe size={11} className="text-accent" />
                 {t("regionsLabel")}
               </span>
-              <span className="text-xl font-semibold tracking-tight text-fg">
-                {stats.totalRegions} <span className="text-xs text-faint">{t("regions")}</span>
+              <span className="tnum font-mono text-xl font-semibold tracking-tight text-fg">
+                {stats.totalRegions}{" "}
+                <span className="text-xs font-normal text-faint">{t("regions")}</span>
               </span>
             </div>
           </div>
 
           {/* 圆环在线率 & CPU/内存平均负载 */}
-          <div className="flex items-center gap-6 border-t border-line/80 pt-4">
-            {/* SVG 极简进度圆环 */}
+          <div className="flex items-center gap-5 border-t border-line pt-4">
             <div className="relative size-16 shrink-0">
               <svg viewBox="0 0 36 36" className="size-full">
                 <title>Online Rate</title>
@@ -154,7 +174,7 @@ export default function NodeMapPage() {
                   r="15.915"
                   fill="none"
                   className="stroke-line"
-                  strokeWidth="2.5"
+                  strokeWidth="2.8"
                 />
                 <circle
                   cx="18"
@@ -162,87 +182,101 @@ export default function NodeMapPage() {
                   r="15.915"
                   fill="none"
                   className="stroke-up transition-all duration-1000"
-                  strokeWidth="2.5"
+                  strokeWidth="2.8"
                   strokeDasharray={`${stats.onlineRate} ${100 - stats.onlineRate}`}
                   strokeDashoffset="25"
                   strokeLinecap="round"
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-sm font-semibold text-fg tracking-tight leading-none">
+                <span className="tnum font-mono text-xs font-semibold leading-none tracking-tight text-fg">
                   {stats.onlineRate}%
                 </span>
-                <span className="text-[8px] text-faint scale-90">
+                <span className="mt-0.5 text-[9px] text-faint">
                   {lang === "zh-CN" ? "在线率" : "Online"}
                 </span>
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col gap-2">
-              <div className="flex flex-col">
-                <div className="flex items-center justify-between text-[11px] font-mono text-muted">
-                  <span>AVG CPU</span>
-                  <span className="text-fg font-medium">{stats.avgCpu}%</span>
+            <div className="flex flex-1 flex-col gap-2.5">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between font-mono text-[11px]">
+                  <span className="flex items-center gap-1 text-muted">
+                    <Cpu size={11} className="text-c-cpu" />
+                    AVG {t("cpu")}
+                  </span>
+                  <span className="tnum font-semibold text-fg">{stats.avgCpu}%</span>
                 </div>
-                <div className="h-1 w-full bg-line rounded-full overflow-hidden mt-1">
-                  <div
-                    className="h-full bg-c-cpu rounded-full"
-                    style={{ width: `${stats.avgCpu}%` }}
-                  />
-                </div>
+                <SegmentedBar
+                  percent={stats.avgCpu}
+                  fill="var(--color-c-cpu)"
+                  segments={18}
+                  size="sm"
+                />
               </div>
 
-              <div className="flex flex-col">
-                <div className="flex items-center justify-between text-[11px] font-mono text-muted">
-                  <span>AVG MEM</span>
-                  <span className="text-fg font-medium">{stats.avgMem}%</span>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between font-mono text-[11px]">
+                  <span className="flex items-center gap-1 text-muted">
+                    <MemoryStick size={11} className="text-c-mem" />
+                    AVG {t("memory")}
+                  </span>
+                  <span className="tnum font-semibold text-fg">{stats.avgMem}%</span>
                 </div>
-                <div className="h-1 w-full bg-line rounded-full overflow-hidden mt-1">
-                  <div
-                    className="h-full bg-c-mem rounded-full"
-                    style={{ width: `${stats.avgMem}%` }}
-                  />
-                </div>
+                <SegmentedBar
+                  percent={stats.avgMem}
+                  fill="var(--color-c-mem)"
+                  segments={18}
+                  size="sm"
+                />
               </div>
             </div>
           </div>
         </div>
 
-        {/* 区域列表 - HUD Panel */}
-        <div className="card p-3 flex flex-col gap-2 flex-1 max-h-[350px] lg:max-h-[480px] overflow-y-auto no-scrollbar">
-          <div className="px-2 py-1 border-b border-line pb-2 mb-1">
-            <span className="text-[10px] font-semibold text-faint tracking-wider uppercase">
-              {lang === "zh-CN" ? "地区明细" : "REGION LIST"}
+        {/* 区域列表 */}
+        <div className="card flex max-h-[360px] flex-1 flex-col gap-2 overflow-y-auto p-3 no-scrollbar lg:max-h-[480px]">
+          <div className="flex items-center justify-between border-b border-line px-2 pb-2 pt-0.5">
+            <span className="text-[11px] font-semibold text-muted">
+              {lang === "zh-CN" ? "地区分布列表" : "Regions"}
+            </span>
+            <span className="font-mono text-[10px] text-faint">
+              {lang === "zh-CN" ? "点击切换节点明细" : "Select to inspect"}
             </span>
           </div>
           <div className="flex flex-col gap-1">
             {countries.map((c) => {
-              const isSelected = selectedCountryCode === c.code;
+              const isSelected = activeCountry?.code === c.code;
+              const statusColor =
+                c.online === c.total
+                  ? "var(--color-up)"
+                  : c.online > 0
+                    ? "var(--color-warn)"
+                    : "var(--color-down)";
               return (
                 <button
                   key={c.code}
                   type="button"
-                  onClick={() => setSelectedCountryCode(isSelected ? null : c.code)}
+                  onClick={() => setSelectedCountryCode(c.code)}
                   className={cn(
-                    "flex items-center justify-between rounded-lg px-2.5 py-2 text-left transition-all text-xs border border-transparent",
+                    "flex items-center justify-between rounded-lg border px-2.5 py-2 text-left text-xs transition-all",
                     isSelected
-                      ? "bg-accent/10 border-accent/20 text-fg font-medium"
-                      : "hover:bg-surface-2 text-muted hover:text-fg-2",
+                      ? "border-accent/30 bg-accent/10 font-medium text-fg shadow-2xs"
+                      : "border-transparent text-muted hover:bg-surface-inset hover:text-fg-2",
                   )}
                 >
                   <div className="flex items-center gap-2">
                     <Flag code={c.code} className="text-sm shrink-0" />
-                    <span className="font-mono tracking-tight">{c.code}</span>
+                    <span className="font-mono font-medium tracking-tight">{c.code}</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-faint">
-                      {c.online}/{c.total}
+                  <div className="flex items-center gap-2.5">
+                    <span className="tnum font-mono text-[11px] text-muted">
+                      {c.online}
+                      <span className="text-faint">/{c.total}</span>
                     </span>
                     <span
-                      className={cn(
-                        "size-1.5 rounded-full shrink-0",
-                        c.online === c.total ? "bg-up" : c.online > 0 ? "bg-warn" : "bg-down",
-                      )}
+                      className="size-1.5 shrink-0 rounded-full"
+                      style={{ background: statusColor }}
                     />
                   </div>
                 </button>
@@ -252,23 +286,35 @@ export default function NodeMapPage() {
         </div>
       </div>
 
-      {/* 右侧地图与全息面板 (占 8 列) */}
+      {/* 右侧地图与地区节点面板 (占 8 列) */}
       <div className="flex flex-col gap-4 lg:col-span-8">
         {/* 地图卡片 */}
-        <div className="card overflow-hidden flex flex-col p-4 bg-gradient-to-b from-surface to-surface-2 relative">
-          <div className="flex items-center justify-between mb-2">
+        <div className="card relative flex flex-col overflow-hidden p-4 sm:p-5">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-col">
-              <span className="text-[10px] font-bold tracking-widest text-faint uppercase">
-                GEOGRAPHIC DISTRIBUTE
-              </span>
-              <span className="text-xs font-semibold text-fg-2">
+              <span className="text-xs font-semibold text-fg">
                 {lang === "zh-CN" ? "全球节点地理分布" : "Global Node Distribution"}
               </span>
+              <span className="font-mono text-[10px] uppercase tracking-wider text-faint">
+                {lang === "zh-CN" ? "点选信标切换地区" : "Click beacon to lock region"}
+              </span>
             </div>
+
+            {previewCountry && (
+              <div className="card-well flex items-center gap-2 px-2.5 py-1 text-xs">
+                <Flag code={previewCountry.code} className="text-xs" />
+                <span className="font-mono font-semibold text-fg">{previewCountry.code}</span>
+                <span className="h-3 w-px bg-line" />
+                <span className="tnum font-mono text-[11px] text-muted">
+                  <span className="text-up font-medium">{previewCountry.online}</span> /{" "}
+                  {previewCountry.total} {t("online")}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* 地图 2D Flat 容器 */}
-          <div className="w-full flex items-center justify-center py-6 overflow-visible">
+          <div className="flex w-full items-center justify-center overflow-visible py-4">
             <div className="w-full origin-center overflow-visible">
               <svg
                 viewBox={`0 6 ${worldDots.w} ${worldDots.h - 14}`}
@@ -276,17 +322,22 @@ export default function NodeMapPage() {
                 role="img"
                 aria-label={t("map")}
               >
-                {/* 陆地点阵底图: 亮色与暗色自适应 */}
+                {/* 陆地点阵底图 */}
                 <path
                   d={basePath}
-                  className="fill-fg opacity-[0.08] dark:opacity-[0.12] transition-all duration-500"
+                  className="fill-fg opacity-[0.11] transition-all duration-500 dark:opacity-[0.14]"
                 />
 
-                {/* 各区域节点圆点与雷达波纹 */}
+                {/* 各区域节点圆点与雷达波纹(支持全在线绿 / 部分离线黄 / 全离线红三态) */}
                 {countries.map((c) => {
-                  const isOk = c.online > 0;
-                  const isHovered = activeCountry?.code === c.code;
-                  const dotColor = isOk ? "var(--color-up)" : "var(--color-down)";
+                  const isActive =
+                    activeCountry?.code === c.code || hoveredCountry?.code === c.code;
+                  const dotColor =
+                    c.online === c.total
+                      ? "var(--color-up)"
+                      : c.online > 0
+                        ? "var(--color-warn)"
+                        : "var(--color-down)";
 
                   return (
                     // biome-ignore lint/a11y/useSemanticElements: SVG elements cannot use button semantic element
@@ -297,34 +348,31 @@ export default function NodeMapPage() {
                       className="cursor-pointer outline-none"
                       onMouseEnter={() => setHoveredCountry(c)}
                       onMouseLeave={() => setHoveredCountry(null)}
-                      onClick={() =>
-                        setSelectedCountryCode(selectedCountryCode === c.code ? null : c.code)
-                      }
+                      onClick={() => setSelectedCountryCode(c.code)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
-                          setSelectedCountryCode(selectedCountryCode === c.code ? null : c.code);
+                          setSelectedCountryCode(c.code);
                         }
                       }}
                     >
-                      {/* 雷达波纹 - 双层动画涟漪 */}
-                      {isOk && (
+                      {c.online > 0 && (
                         <>
                           <circle
                             cx={c.x}
                             cy={c.y}
-                            r={0.75}
+                            r={0.8}
                             fill={dotColor}
-                            opacity={isHovered ? 0.8 : 0.45}
+                            opacity={isActive ? 0.85 : 0.45}
                           >
                             <animate
                               attributeName="r"
-                              values="0.75;3.2"
+                              values="0.8;3.4"
                               dur="2.5s"
                               repeatCount="indefinite"
                             />
                             <animate
                               attributeName="opacity"
-                              values="0.5;0"
+                              values="0.55;0"
                               dur="2.5s"
                               repeatCount="indefinite"
                             />
@@ -332,13 +380,13 @@ export default function NodeMapPage() {
                           <circle
                             cx={c.x}
                             cy={c.y}
-                            r={0.75}
+                            r={0.8}
                             fill={dotColor}
-                            opacity={isHovered ? 0.6 : 0.35}
+                            opacity={isActive ? 0.65 : 0.35}
                           >
                             <animate
                               attributeName="r"
-                              values="0.75;3.2"
+                              values="0.8;3.4"
                               dur="2.5s"
                               begin="1.25s"
                               repeatCount="indefinite"
@@ -358,14 +406,14 @@ export default function NodeMapPage() {
                       <circle
                         cx={c.x}
                         cy={c.y}
-                        r={isHovered ? 1.0 : 0.65}
+                        r={isActive ? 1.15 : 0.72}
                         fill={dotColor}
-                        className="transition-all duration-300 stroke-surface"
-                        strokeWidth={isHovered ? 0.3 : 0}
+                        className="stroke-surface transition-all duration-300"
+                        strokeWidth={isActive ? 0.35 : 0.15}
                       />
 
                       {/* 热区透明占位圆，提升触控和悬浮交互敏感度 */}
-                      <circle cx={c.x} cy={c.y} r={3} fill="transparent" />
+                      <circle cx={c.x} cy={c.y} r={3.2} fill="transparent" />
                     </g>
                   );
                 })}
@@ -374,98 +422,118 @@ export default function NodeMapPage() {
           </div>
         </div>
 
-        {/* 区域服务器 HUD 详情卡片 */}
-        {activeCountry ? (
-          <div className="card p-4 flex flex-col gap-3 bg-gradient-to-b from-surface to-surface-2 animate-fade-in">
-            <div className="flex items-center justify-between border-b border-line pb-2.5">
-              <div className="flex items-center gap-2">
+        {/* 区域服务器详情卡片(可直接点击跳转进入单机详情页) */}
+        {activeCountry && (
+          <div className="card flex flex-col gap-3.5 p-4 sm:p-5">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2.5">
                 <Flag code={activeCountry.code} className="text-lg" />
                 <div>
-                  <h3 className="text-sm font-semibold text-fg tracking-tight">
-                    {lang === "zh-CN" ? "地区节点明细" : "Region Nodes"} ({activeCountry.code})
+                  <h3 className="text-sm font-semibold tracking-tight text-fg">
+                    {lang === "zh-CN" ? "地区节点明细" : "Region Nodes"} · {activeCountry.code}
                   </h3>
-                  <p className="text-[10px] text-faint font-mono">
-                    STATUS: {activeCountry.online} ONLINE / {activeCountry.total} TOTAL
+                  <p className="tnum font-mono text-[10.5px] text-muted">
+                    {activeCountry.online} {t("online")} / {activeCountry.total}{" "}
+                    {lang === "zh-CN" ? "台服务器" : "servers"}
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setHoveredCountry(null);
-                  setSelectedCountryCode(null);
-                }}
-                className="text-[10px] font-mono text-muted hover:text-fg hover:bg-surface-2 px-2 py-0.5 rounded transition-all"
-              >
-                CLOSE [X]
-              </button>
             </div>
 
-            {/* 服务器网格/列表 */}
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              {activeCountry.servers.map((s) => (
-                <div
-                  key={s.id}
-                  className={cn(
-                    "flex flex-col gap-2 rounded-lg border border-line bg-surface p-3 transition-all",
-                    !s.online && "opacity-60",
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-fg truncate max-w-[150px]">
-                      {s.name}
-                    </span>
-                    <span
-                      className={cn(
-                        "flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium border",
-                        s.online
-                          ? "border-up/20 bg-up/10 text-up"
-                          : "border-down/20 bg-down/10 text-down",
-                      )}
-                    >
-                      <span className={cn("size-1 rounded-full", s.online ? "bg-up" : "bg-down")} />
-                      {s.online ? "ONLINE" : "OFFLINE"}
-                    </span>
-                  </div>
-
-                  {s.online && (
-                    <div className="flex flex-col gap-1 text-[10px] font-mono text-muted">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <OsIcon platform={s.host.platform} className="size-3 shrink-0" />
-                        <span>
-                          {s.host.arch} · {formatBytes(s.host.mem_total)} RAM
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {activeCountry.servers.map((s) => {
+                const memPct = memPercent(s);
+                return (
+                  <Link
+                    key={s.id}
+                    to={`/server/${s.id}`}
+                    className={cn(
+                      "card-well group flex flex-col gap-2.5 p-3.5 transition-all hover:border-line-strong hover:bg-surface",
+                      !s.online && " opacity-60 saturate-50",
+                    )}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <OsIcon platform={s.host.platform} className="size-3.5 shrink-0" />
+                        <span className="truncate text-xs font-semibold text-fg transition-colors group-hover:text-accent">
+                          {s.name}
                         </span>
                       </div>
-                      <div className="flex justify-between items-center mt-1">
-                        <span>CPU: {s.state.cpu.toFixed(0)}%</span>
-                        <span>NET: ↑{formatBytes(s.state.net_out_speed)}/s</span>
+                      <span
+                        className={cn(
+                          "flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[9.5px] font-medium",
+                          s.online
+                            ? "border-up/25 bg-up/10 text-up"
+                            : "border-down/25 bg-down/10 text-down",
+                        )}
+                      >
+                        <span
+                          className={cn("size-1 rounded-full", s.online ? "bg-up" : "bg-down")}
+                        />
+                        {s.online ? t("online") : t("offline")}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between font-mono text-[10px]">
+                          <span className="text-faint">{t("cpu")}</span>
+                          <span className="tnum font-medium text-fg-2">
+                            {s.state.cpu.toFixed(0)}%
+                          </span>
+                        </div>
+                        <SegmentedBar
+                          percent={s.state.cpu}
+                          fill={
+                            s.state.cpu >= 90
+                              ? "var(--color-down)"
+                              : s.state.cpu >= 75
+                                ? "var(--color-warn)"
+                                : "var(--color-c-cpu)"
+                          }
+                          segments={12}
+                          size="sm"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center justify-between font-mono text-[10px]">
+                          <span className="text-faint">{t("memory")}</span>
+                          <span className="tnum font-medium text-fg-2">{memPct.toFixed(0)}%</span>
+                        </div>
+                        <SegmentedBar
+                          percent={memPct}
+                          fill={
+                            memPct >= 90
+                              ? "var(--color-down)"
+                              : memPct >= 75
+                                ? "var(--color-warn)"
+                                : "var(--color-c-mem)"
+                          }
+                          segments={12}
+                          size="sm"
+                        />
                       </div>
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    <div className="tnum flex items-center justify-between border-t border-line/70 pt-2 font-mono text-[10.5px] text-muted">
+                      <span className="truncate text-faint">
+                        {platformName(s.host.platform)} · {formatBytes(s.host.mem_total)}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="inline-flex items-center gap-0.5">
+                          <ArrowUp size={10} className="text-c-out" />
+                          {formatSpeed(s.state.net_out_speed)}
+                        </span>
+                        <span className="inline-flex items-center gap-0.5">
+                          <ArrowDown size={10} className="text-c-in" />
+                          {formatSpeed(s.state.net_in_speed)}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
-          </div>
-        ) : (
-          <div className="card p-8 flex flex-col items-center justify-center text-center py-12">
-            <svg viewBox="0 0 16 16" fill="none" className="size-8 text-faint mb-2.5 opacity-60">
-              <title>Info Icon</title>
-              <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.2" />
-              <path
-                d="M8 4.5v4.5M8 11.5h.01"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-            <p className="text-xs font-medium text-fg-2">
-              {lang === "zh-CN" ? "请悬停或点击地图节点" : "Hover or click a node on the map"}
-            </p>
-            <p className="text-[10px] text-faint mt-1">
-              {lang === "zh-CN"
-                ? "可查看对应地区的服务器详情数据"
-                : "To inspect server statistics of specific region"}
-            </p>
           </div>
         )}
       </div>

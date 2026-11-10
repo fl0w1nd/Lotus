@@ -9,9 +9,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Segmented } from "@/components/Segmented";
 import { fetchServerMetrics } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
-import { cn, formatSpeed } from "@/lib/utils";
+import { formatSpeed } from "@/lib/utils";
 import type { MetricPeriod, MetricType } from "@/types/nezha";
 import { AXIS_PROPS, ChartTooltip, GRID_PROPS, X_AXIS_PROPS } from "./ChartTheme";
 import { axisWidthFor, niceScale, PERCENT_SCALE, speedScale, tickFormat } from "./chartScale";
@@ -135,41 +136,33 @@ export function HistoryChart({ serverId, hasGpu }: { serverId: number; hasGpu?: 
             tsdb
           </span>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5">
-            {METRICS.filter((m) => m.key !== "gpu" || hasGpu).map((m) => (
-              <button
-                key={m.key}
-                type="button"
-                onClick={() => setMetric(m.key)}
-                className={cn(
-                  "rounded-md px-2 py-1 text-[10.5px] font-medium transition-all",
-                  metric === m.key
-                    ? "bg-surface-2 text-fg shadow-sm"
-                    : "text-muted hover:text-fg-2",
-                )}
-              >
-                {t(m.labelKey)}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-0.5 rounded-lg border border-line bg-surface p-0.5">
-            {periods.map((p) => (
-              <button
-                key={p.key}
-                type="button"
-                onClick={() => setPeriod(p.key)}
-                className={cn(
-                  "rounded-md px-2 py-1 font-mono text-[10.5px] font-medium transition-all",
-                  period === p.key
-                    ? "bg-surface-2 text-fg shadow-sm"
-                    : "text-muted hover:text-fg-2",
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+        <div className="flex max-w-full flex-wrap items-center gap-2">
+          <Segmented
+            label={t("metricSelect")}
+            size="sm"
+            value={metric}
+            onChange={setMetric}
+            className="no-scrollbar flex max-w-full overflow-x-auto"
+            options={METRICS.filter((m) => m.key !== "gpu" || hasGpu).map((m) => ({
+              value: m.key,
+              label: (
+                <>
+                  {metric === m.key && (
+                    <span className="size-1.5 rounded-full" style={{ background: m.color }} />
+                  )}
+                  {t(m.labelKey)}
+                </>
+              ),
+            }))}
+          />
+          <Segmented
+            label={t("timeRange")}
+            size="sm"
+            value={period}
+            onChange={setPeriod}
+            itemClassName="font-mono"
+            options={periods.map((p) => ({ value: p.key, label: p.label }))}
+          />
         </div>
       </div>
 

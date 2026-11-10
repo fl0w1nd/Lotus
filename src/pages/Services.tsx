@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { Repeat } from "lucide-react";
 import { useState } from "react";
 import { LotusMark } from "@/components/Logo";
+import { SegmentedBar } from "@/components/UsageBar";
 import { fetchService } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { cn, formatBytes } from "@/lib/utils";
@@ -182,34 +184,39 @@ function CycleCard({ cycle }: { cycle: CycleTransferData }) {
   return (
     <div className="card flex flex-col gap-3 p-4">
       {/* flex-wrap 防止窄屏标题与日期挤压重叠 */}
-      <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-        <h3 className="min-w-0 truncate text-[13px] font-medium">{cycle.name}</h3>
-        <span className="tnum shrink-0 font-mono text-[10px] text-faint">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <h3 className="flex min-w-0 items-center gap-1.5 truncate text-[13px] font-semibold">
+          <Repeat size={12.5} className="shrink-0 text-c-cpu" />
+          <span className="truncate">{cycle.name}</span>
+        </h3>
+        <span className="badge-chip tnum shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] text-muted">
           {new Date(cycle.from).toLocaleDateString()} → {new Date(cycle.to).toLocaleDateString()}
         </span>
       </div>
-      <div className="flex flex-col gap-2.5">
+      <div className="card-well flex flex-col gap-3 p-3">
         {serverIds.map((sid) => {
           const used = cycle.transfer?.[sid] ?? 0;
           const max = cycle.max || 1;
           const pct = Math.min((used / max) * 100, 100);
+          const fill =
+            pct >= 90
+              ? "var(--color-down)"
+              : pct >= 75
+                ? "var(--color-warn)"
+                : "var(--color-c-cpu)";
           return (
-            <div key={sid}>
-              <div className="mb-1 flex items-baseline justify-between gap-2">
-                <span className="truncate text-[11px] text-fg-2">{cycle.server_name[sid]}</span>
-                <span className="tnum shrink-0 font-mono text-[10px] text-muted">
-                  {formatBytes(used)} <span className="text-faint">/ {formatBytes(max)}</span>
+            <div key={sid} className="flex flex-col gap-1.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="truncate text-[11.5px] font-medium text-fg">
+                  {cycle.server_name[sid]}
+                </span>
+                <span className="tnum shrink-0 font-mono text-[10.5px] font-medium text-fg-2">
+                  {formatBytes(used)}{" "}
+                  <span className="font-normal text-faint">/ {formatBytes(max)}</span>{" "}
+                  <span className="text-muted">({pct.toFixed(0)}%)</span>
                 </span>
               </div>
-              <div className="h-[3px] overflow-hidden rounded-full bg-line">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-[width] duration-700",
-                    pct >= 90 ? "bg-down" : pct >= 75 ? "bg-warn" : "bg-c-cpu",
-                  )}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
+              <SegmentedBar percent={pct} fill={fill} segments={24} size="sm" />
             </div>
           );
         })}
