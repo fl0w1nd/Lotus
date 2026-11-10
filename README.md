@@ -285,7 +285,7 @@ server {
 | `window.CustomBackgroundImage` | 桌面端背景图 URL |
 | `window.CustomMobileBackgroundImage` | 移动端背景图 URL |
 | `window.ShowNetTransfer` | 是否在卡片显示累计流量（本主题默认显示，设为 `false` 可隐藏） |
-| `window.ForceUseSvgFlag` | 强制使用 SVG 国旗（Windows 平台会自动启用，emoji 国旗在 Windows 不可用） |
+| `window.ForceUseSvgFlag` | 是否使用 SVG 圆形国旗（默认启用，图标随主题本地打包、不请求外部 CDN；设为 `false` 改用系统 emoji 国旗） |
 
 ---
 
