@@ -507,7 +507,14 @@ export default function ServerDetail() {
       <PingChart serverId={serverId} />
 
       {/* TSDB 历史指标(v2) */}
-      {tsdbEnabled && <HistoryChart serverId={serverId} hasGpu={server.host.gpu.length > 0} />}
+      {tsdbEnabled && (
+        <HistoryChart
+          serverId={serverId}
+          hasGpu={server.host.gpu.length > 0}
+          memTotal={server.host.mem_total}
+          diskTotal={server.host.disk_total}
+        />
+      )}
     </div>
   );
 }

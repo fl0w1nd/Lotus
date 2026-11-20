@@ -44,7 +44,25 @@ const METRICS: {
   { key: "tcp_conn", labelKey: "connections", unit: "raw", color: "var(--color-c-in)" },
 ];
 
-export function HistoryChart({ serverId, hasGpu }: { serverId: number; hasGpu?: boolean }) {
+/**
+ * 面板 v2.7 起 TSDB 的 memory / disk 返回已用字节数而不是百分比。
+ * 有总量时把字节换算成百分比; 不超过 100 的值视为已经是百分比 (兼容旧面板)。
+ */
+function toPercent(value: number, total?: number): number {
+  return total && total > 0 && value > 100 ? (value / total) * 100 : value;
+}
+
+export function HistoryChart({
+  serverId,
+  hasGpu,
+  memTotal,
+  diskTotal,
+}: {
+  serverId: number;
+  hasGpu?: boolean;
+  memTotal?: number;
+  diskTotal?: number;
+}) {
   const { t } = useI18n();
   const [metric, setMetric] = useState<MetricType>("cpu");
   const [period, setPeriod] = useState<MetricPeriod>("1d");
@@ -58,11 +76,13 @@ export function HistoryChart({ serverId, hasGpu }: { serverId: number; hasGpu?: 
   const meta = METRICS.find((m) => m.key === metric) ?? METRICS[0];
   const points = useMemo(
     () =>
-      (data?.data?.data_points ?? []).map((p) => ({
-        t: p.ts,
-        v: meta.unit === "speed" ? p.value : Math.round(p.value * 10) / 10,
-      })),
-    [data, meta.unit],
+      (data?.data?.data_points ?? []).map((p) => {
+        const total =
+          meta.key === "memory" ? memTotal : meta.key === "disk" ? diskTotal : undefined;
+        const value = toPercent(p.value, total);
+        return { t: p.ts, v: meta.unit === "speed" ? value : Math.round(value * 10) / 10 };
+      }),
+    [data, meta.unit, meta.key, memTotal, diskTotal],
   );
 
   // 三类量纲的刻度策略:
